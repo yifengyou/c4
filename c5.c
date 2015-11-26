@@ -189,8 +189,7 @@ void expr(int lev)
         else {
             if (d[Class] == Loc) { *++e = LOC; *++e = d[Val]; }
             else if (d[Class] == Arg) { *++e = ARG; *++e = d[Val]; }
-            else if (d[Class] == Glo) { *++e = GLO; *++e = (int)d; }
-            else { printf("%d: undefined variable\n", line); exit(-1); }
+            else { *++e = GLO; *++e = (int)d; } // Treat all unknown to external global variable
             *++e = ((ty = d[Type]) == CHAR) ? LC : LI;
         }
     }
