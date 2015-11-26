@@ -1,14 +1,12 @@
-c4 - C in four functions
-========================
+c5 - Compiler C to MIPS in five functions
+====
 
-An exercise in minimalism.
+Forked from [rswier/c4](https://github.com/rswier/c4). Modified to generate MIPS asm code.
 
 Try the following:
 
-    gcc -o c4 c4.c  (you may need the -m32 option on 64bit machines)
-    ./c4 hello.c
-    ./c4 -s hello.c
-    
-    ./c4 c4.c hello.c
-    ./c4 c4.c c4.c hello.c
-
+```
+make
+./c5 c5.c
+./c5 c5.c hello.c
+```
