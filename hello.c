@@ -1,7 +1,13 @@
 #include <stdio.h>
 
-int main()
+char *
+_memcpy(char *dst, char *src, int size)
 {
-  printf("hello, world\n");
-  return 0;
+    char *ret;
+    ret = dst;
+    while (size--) {
+        *dst++ = *src++;
+    }
+    return ret;
 }
+
