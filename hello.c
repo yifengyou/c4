@@ -1,7 +1,10 @@
-#include <stdio.h>
+int 
+max(int a, int b)
+{
+    return a > b ? a : b;
+}
 
 int main()
 {
-  printf("hello, world\n");
-  return 0;
+    return 1 + max(1, 2);
 }
