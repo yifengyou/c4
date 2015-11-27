@@ -344,8 +344,8 @@ codegen(int *e, int *le)
         }
         else if (*e == LI)  { printf("    lw   $v0, 0($v0)\n"); }
         else if (*e == LC)  { printf("    lb   $v0, 0($v0)\n"); }
-        else if (*e == SI)  { printf("    sw   $t%d, 0($v0)\n", st--); }
-        else if (*e == SC)  { printf("    sb   $t%d, 0($v0)\n", st--); }
+        else if (*e == SI)  { printf("    sw   $v0, 0($t%d)\n", st--); }
+        else if (*e == SC)  { printf("    sb   $v0, 0($t%d)\n", st--); }
         else if (*e == PSH) { printf("    addi $t%d, $v0, 0\n", ++st); }
         else if (*e == OR)  { printf("    or   $v0, $t%d, $v0\n", st--); }
         else if (*e == XOR) { printf("    xor  $v0, $t%d, $v0\n", st--); }
@@ -403,9 +403,8 @@ void stmt()
 {
     int *a, *b;
 
-    *++e = CMMT; *++e = line;
-
     if (tk == If) {
+        *++e = CMMT; *++e = line;
         next();
         if (tk == '(') next(); else { printf("%d: open paren expected\n", line); exit(-1); }
         expr(Assign);
@@ -420,6 +419,7 @@ void stmt()
         *(int*)(*b = (int)++e) = LABL;
     }
     else if (tk == While) {
+        *++e = CMMT; *++e = line;
         next();
         a = e + 1;
         if (tk == '(') next(); else { printf("%d: open paren expected\n", line); exit(-1); }
@@ -431,6 +431,7 @@ void stmt()
         *(int*)(*b = (int)++e) = LABL;
     }
     else if (tk == Return) {
+        *++e = CMMT; *++e = line;
         next();
         if (tk != ';') expr(Assign);
         *++e = LEV;
@@ -445,6 +446,7 @@ void stmt()
         next();
     }
     else {
+        *++e = CMMT; *++e = line;
         expr(Assign);
         if (tk == ';') next(); else { printf("%d: semicolon expected\n", line); exit(-1); }
     }
