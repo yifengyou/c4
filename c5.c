@@ -285,35 +285,43 @@ void expr(int lev)
 void
 codegen(int *e, int *le)
 {
-    int i;
+    int i, lst;
 
     st = -1;
+    lst = 0;    // last in stack
     while (e != le) {
-        if (*e == STR)      { printf("    addi $v0, $gp, s%d\n", *++e); }
+        if (*e == STR)      { printf("    addi $v0, $gp, s%d\n", *++e); lst = 0; }
         else if (*e == GLO) {
             ++e;
+            lst = 0;
             if (*(e + 1) == LI) { printf("    lw $v0, %.*s($gp)\n", ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]); ++e; }
             else if (*(e + 1) == LC) { printf("    lb $v0, %.*s($gp)\n", ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]); ++e; }
-            else if (*(e + 1) == PSH) { printf("    addi $t%d, $gp, %.*s\n", ++st, ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]); ++e; }
+            else if (*(e + 1) == PSH) {
+                printf("    addi $t%d, $gp, %.*s\n", ++st, ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]);
+                ++e; lst = 1;
+            }
             else { printf("    addi $v0, $gp, %.*s\n", ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]); }
         }
         else if (*e == LOC) {
+            lst = 0;
             if (*(e + 2) == LI) { printf("    lw $v0, -%d($fp)\n", (*++e) << 2); ++e; }
             else if (*(e + 2) == LC) { printf("    lb $v0, -%d($fp)\n", (*++e) << 2); ++e; }
-            else if (*(e + 2) == PSH) { printf("    addi $t%d, $fp, -%d\n", ++st, (*++e) << 2); ++e; }
+            else if (*(e + 2) == PSH) { printf("    addi $t%d, $fp, -%d\n", ++st, (*++e) << 2); ++e; lst = 1; }
             else { printf("    addi $v0, $fp, -%d\n", (*++e) << 2); }
         }
         else if (*e == ARG) {
+            lst = 0;
             if (*(e + 2) == LI) { printf("    lw $v0, %d($fp)\n", (*++e + 2) << 2); ++e; }
             else if (*(e + 2) == LC) { printf("    lb $v0, %d($fp)\n", (*++e + 2) << 2); ++e; }
-            else if (*(e + 2) == PSH) { printf("    addi $t%d, $fp, %d\n", ++st, (*++e + 2) << 2); ++e; }
+            else if (*(e + 2) == PSH) { printf("    addi $t%d, $fp, %d\n", ++st, (*++e + 2) << 2); ++e; lst = 1; }
             else { printf("    addi $v0, $fp, %d\n", (*++e + 2) << 2); }
         }
         else if (*e == IMM) {
             ++e;
             if (*e <= 32767 && *e >= -65535) {
+                lst = 0;
                 if (*(e + 1) == LI || *(e + 1) == LC) { printf("    %s   $v0, %d($gp)\n", *(e + 1) == LI ? "lw" : "lb", ival); ++e; }
-                else if (*(e + 1) == PSH) { printf("    addi $t%d, $zero, %d\n", ++st, ival); ++e; }
+                else if (*(e + 1) == PSH) { printf("    addi $t%d, $zero, %d\n", ++st, ival); ++e; lst = 1; }
                 else if (*(e + 1) == OR)  { printf("    ori  $v0, $t%d, %d\n", st--, ival); ++e; }
                 else if (*(e + 1) == XOR) { printf("    xori $v0, $t%d, %d\n", st--, ival); ++e; }
                 else if (*(e + 1) == AND) { printf("    andi $v0, $t%d, %d\n", st--, ival); ++e; }
@@ -331,7 +339,7 @@ codegen(int *e, int *le)
             printf("    beq  $zero, $zero, _%.*s_%u\n", current_func[Hash] & 0x3F, (char*)current_func[Name], *++e); 
         }
         else if (*e == CALL) {
-            ++e; i = 0;
+            ++e; i = 0; lst = 0;
             printf("    addi $sp, $sp, -%d\n", (st + 1) << 2);
             while (i <= st - *e) { printf("    sw   $t%d, %d($sp)\n", i, (st - i) << 2); ++i; }  // save temp stack
             while (i <= st) {
@@ -348,25 +356,28 @@ codegen(int *e, int *le)
             ++e;
         }
         else if (*e == BZ)  {
-            printf("    beq  $v0, $zero, _%.*s_%u\n", current_func[Hash] & 0x3F, (char*)current_func[Name], *++e); 
+            if (lst) { printf("    beq  $t%d, $zero, _%.*s_%u\n", st, current_func[Hash] & 0x3F, (char*)current_func[Name], *++e); }
+            else { printf("    beq  $v0, $zero, _%.*s_%u\n", current_func[Hash] & 0x3F, (char*)current_func[Name], *++e); }
         }
         else if (*e == BNZ) {
-            printf("    bne  $v0, $zero, _%.*s_%u\n", current_func[Hash] & 0x3F, (char*)current_func[Name], *++e); 
+            if (lst) { printf("    bne  $t%d, $zero, _%.*s_%u\n", st, current_func[Hash] & 0x3F, (char*)current_func[Name], *++e); }
+            else { printf("    bne  $v0, $zero, _%.*s_%u\n", current_func[Hash] & 0x3F, (char*)current_func[Name], *++e); }
         }
         else if (*e == LEV) {
             if (e + 1 != le) {  // at the end of function
                 printf("    j    _%.*s_end\n", current_func[Hash] & 0x3F, (char*)current_func[Name]); 
             }
         }
-        else if (*e == LI)  { printf("    lw   $v0, 0($v0)\n"); }
-        else if (*e == LC)  { printf("    lb   $v0, 0($v0)\n"); }
-        else if (*e == SI)  { printf("    sw   $v0, 0($t%d)\n", st--); }
-        else if (*e == SC)  { printf("    sb   $v0, 0($t%d)\n", st--); }
+        else if (*e == LI)  { if (lst) printf("    lw $v0, 0($t%d)\n", st); else printf("    lw   $v0, 0($v0)\n"); lst = 0; }
+        else if (*e == LC)  { if (lst) printf("    lb $v0, 0($t%d)\n", st); else printf("    lb   $v0, 0($v0)\n"); lst = 0; }
+        else if (*e == SI)  { lst = 0; printf("    sw   $v0, 0($t%d)\n", st--); }
+        else if (*e == SC)  { lst = 0; printf("    sb   $v0, 0($t%d)\n", st--); }
         else if (*e == PSH) { printf("    addi $t%d, $v0, 0\n", ++st); }
-        else if (*e == OR)  { printf("    or   $v0, $t%d, $v0\n", st--); }
-        else if (*e == XOR) { printf("    xor  $v0, $t%d, $v0\n", st--); }
-        else if (*e == AND) { printf("    and  $v0, $t%d, $v0\n", st--); }
+        else if (*e == OR)  { lst = 0; printf("    or   $v0, $t%d, $v0\n", st--); }
+        else if (*e == XOR) { lst = 0; printf("    xor  $v0, $t%d, $v0\n", st--); }
+        else if (*e == AND) { lst = 0; printf("    and  $v0, $t%d, $v0\n", st--); }
         else if (*e == EQ)  {
+            lst = 0;
             if (*(e + 1) == BNZ) {
                 e = e + 2;
                 printf("    beq  $v0, $t%d, _%.*s_%u\n", st--, current_func[Hash] & 0x3F, (char*)current_func[Name], *e);
