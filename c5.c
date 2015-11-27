@@ -292,43 +292,22 @@ codegen(int *e, int *le)
         if (*e == STR)      { printf("    addi $v0, $gp, s%d\n", *++e); }
         else if (*e == GLO) {
             ++e;
-            if (*(e + 1) == LI) {
-                printf("    lw $v0, %.*s($gp)\n", ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]);
-                ++e;
-            }
-            else if (*(e + 1) == LC) { 
-                printf("    lb $v0, %.*s($gp)\n", ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]);
-                ++e;
-            }
-            else {
-                printf("    addi $v0, $gp, %.*s\n", ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]); 
-            }
+            if (*(e + 1) == LI) { printf("    lw $v0, %.*s($gp)\n", ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]); ++e; }
+            else if (*(e + 1) == LC) { printf("    lb $v0, %.*s($gp)\n", ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]); ++e; }
+            else if (*(e + 1) == PSH) { printf("    addi $t%d, $gp, %.*s\n", ++st, ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]); ++e; }
+            else { printf("    addi $v0, $gp, %.*s\n", ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]); }
         }
         else if (*e == LOC) {
-            if (*(e + 2) == LI) {
-                printf("    lw $v0, -%d($fp)\n", (*++e) << 2);
-                ++e;
-            }
-            else if (*(e + 2) == LC) {
-                printf("    lb $v0, -%d($fp)\n", (*++e) << 2);
-                ++e;
-            }
-            else {
-                printf("    addi $v0, $fp, -%d\n", (*++e) << 2);
-            }
+            if (*(e + 2) == LI) { printf("    lw $v0, -%d($fp)\n", (*++e) << 2); ++e; }
+            else if (*(e + 2) == LC) { printf("    lb $v0, -%d($fp)\n", (*++e) << 2); ++e; }
+            else if (*(e + 2) == PSH) { printf("    addi $t%d, $fp, -%d\n", ++st, (*++e) << 2); ++e; }
+            else { printf("    addi $v0, $fp, -%d\n", (*++e) << 2); }
         }
         else if (*e == ARG) {
-            if (*(e + 2) == LI) {
-                printf("    lw $v0, %d($fp)\n", (*++e + 2) << 2);
-                ++e;
-            }
-            else if (*(e + 2) == LC) {
-                printf("    lb $v0, %d($fp)\n", (*++e + 2) << 2);
-                ++e;
-            }
-            else {
-                printf("    addi $v0, $fp, %d\n", (*++e + 2) << 2);
-            }
+            if (*(e + 2) == LI) { printf("    lw $v0, %d($fp)\n", (*++e + 2) << 2); ++e; }
+            else if (*(e + 2) == LC) { printf("    lb $v0, %d($fp)\n", (*++e + 2) << 2); ++e; }
+            else if (*(e + 2) == PSH) { printf("    addi $t%d, $fp, %d\n", ++st, (*++e + 2) << 2); ++e; }
+            else { printf("    addi $v0, $fp, %d\n", (*++e + 2) << 2); }
         }
         else if (*e == IMM) {
             ++e;
