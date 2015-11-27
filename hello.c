@@ -1,13 +1,12 @@
-#include <stdio.h>
-
-char *
-_memcpy(char *dst, char *src, int size)
+int 
+max(int a, int b)
 {
-    char *ret;
-    ret = dst;
-    while (size--) {
-        *dst++ = *src++;
-    }
-    return ret;
+    return a > b ? a : b;
+}
+
+int
+main()
+{
+    return 1 + max(1, 2);
 }
 
