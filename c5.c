@@ -35,9 +35,8 @@ enum {
 
 // opcodes
 enum {
-    STR ,GLO ,LOC ,ARG ,IMM ,JMP ,CALL,BZ  ,BNZ ,ENT ,LEV ,LI  ,LC  ,SI  ,SC  ,PSH ,
-    OR  ,XOR ,AND ,EQ  ,NE  ,LT  ,GT  ,LE  ,GE  ,SHL ,SHR ,ADD ,SUB ,MUL ,DIV ,MOD ,LABL,CMMT,
-    OPEN,READ,CLOS,PRTF,MALC,MSET,MCMP,EXIT
+    STR ,GLO ,LOC ,ARG ,IMM ,JMP ,CALL,BZ  ,BNZ ,LEV ,LI  ,LC  ,SI  ,SC  ,PSH ,
+    OR  ,XOR ,AND ,EQ  ,NE  ,LT  ,GT  ,LE  ,GE  ,SHL ,SHR ,ADD ,SUB ,MUL ,DIV ,MOD ,LABL,CMMT
 };
 
 // types
@@ -283,7 +282,8 @@ void expr(int lev)
     }
 }
 
-void codegen(int *e, int *le)
+void
+codegen(int *e, int *le)
 {
     int i;
 
@@ -295,10 +295,25 @@ void codegen(int *e, int *le)
         else if (*e == ARG) { printf("    addi $v0, $fp, %d\n", (*++e + 2) << 2); }
         else if (*e == IMM) {
             ++e;
-            if (*e < 32767 && *e >= -65535) { printf("    addi $v0, $zero, %d\n", *e); }
+            if (*e <= 32767 && *e >= -65535) {
+                if (*(e + 1) == LI || *(e + 1) == LC) { printf("    %s   $v0, %d($gp)\n", *(e + 1) == LI ? "lw" : "lb", ival); ++e; }
+                else if (*(e + 1) == PSH) { printf("    addi $t%d, $zero, %d\n", ++st, ival); ++e; }
+                else if (*(e + 1) == OR)  { printf("    ori  $v0, $t%d, %d\n", st--, ival); ++e; }
+                else if (*(e + 1) == XOR) { printf("    xori $v0, $t%d, %d\n", st--, ival); ++e; }
+                else if (*(e + 1) == AND) { printf("    andi $v0, $t%d, %d\n", st--, ival); ++e; }
+                else if (*(e + 1) == NE)  { printf("    addi $v0, $t%d, %d\n", st--, -ival); ++e; }
+                else if (*(e + 1) == SHL) { printf("    sll  $v0, $t%d, %d\n", st--, ival); ++e; }
+                else if (*(e + 1) == SHR) { printf("    srl  $v0, $t%d, %d\n", st--, ival); ++e; }
+                else if (*(e + 1) == ADD) { printf("    addi $v0, $t%d, %d\n", st--, ival); ++e; }
+                else if (*(e + 1) == SUB) { printf("    addi $v0, $t%d, %d\n", st--, -ival); ++e; }
+                else printf("    addi $v0, $zero, %d\n", *e);
+            }
             else { printf("Imm too large: %d\n", *e); exit(-1); }
         }
-        else if (*e == JMP) { printf("    j    _%.*s_%u\n", current_func[Hash] & 0x3F, (char*)current_func[Name], *++e); }
+        else if (*e == JMP) {
+            // address indepent code
+            printf("    beq  $zero, $zero, _%.*s_%u\n", current_func[Hash] & 0x3F, (char*)current_func[Name], *++e); 
+        }
         else if (*e == CALL) {
             ++e; i = 0;
             printf("    addi $sp, $sp, -%d\n", (st + 1) << 2);
