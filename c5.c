@@ -187,7 +187,7 @@ void expr(int lev)
     else if (tk == Add) { next(); expr(Inc); ty = INT; }
     else if (tk == Sub) {
         next(); *++e = IMM;
-        if (tk == Num) { *++e = -ival; next(); } else { *++e = -1; *++e = PSH; expr(Inc); *++e = MUL; }
+        if (tk == Num) { *++e = -ival; next(); } else { *++e = 0; *++e = PSH; expr(Inc); *++e = SUB; }
         ty = INT;
     }
     else if (tk == Inc || tk == Dec) {
@@ -247,13 +247,13 @@ void expr(int lev)
         else if (tk == Shr) { next(); *++e = PSH; expr(Add); *++e = SHR; ty = INT; }
         else if (tk == Add) {
             next(); *++e = PSH; expr(Mul);
-            if ((ty = t) > PTR) { *++e = PSH; *++e = IMM; *++e = sizeof(int); *++e = MUL;  }
+            if ((ty = t) > PTR) { *++e = PSH; *++e = IMM; *++e = 2; *++e = SHL;  }
             *++e = ADD;
         }
         else if (tk == Sub) {
             next(); *++e = PSH; expr(Mul);
             if (t > PTR && t == ty) { *++e = SUB; *++e = PSH; *++e = IMM; *++e = sizeof(int); *++e = DIV; ty = INT; }
-            else if ((ty = t) > PTR) { *++e = PSH; *++e = IMM; *++e = sizeof(int); *++e = MUL; *++e = SUB; }
+            else if ((ty = t) > PTR) { *++e = PSH; *++e = IMM; *++e = 2; *++e = SHL; *++e = SUB; }
             else *++e = SUB;
         }
         else if (tk == Mul) { next(); *++e = PSH; expr(Inc); *++e = MUL; ty = INT; }
@@ -273,7 +273,7 @@ void expr(int lev)
         else if (tk == Brak) {
             next(); *++e = PSH; expr(Assign);
             if (tk == ']') next(); else { printf("%d: close bracket expected\n", line); exit(-1); }
-            if (t > PTR) { *++e = PSH; *++e = IMM; *++e = sizeof(int); *++e = MUL;  }
+            if (t > PTR) { *++e = PSH; *++e = IMM; *++e = 2; *++e = SHL;  }
             else if (t < PTR) { printf("%d: pointer type expected\n", line); exit(-1); }
             *++e = ADD;
             *++e = ((ty = t - PTR) == CHAR) ? LC : LI;
@@ -294,7 +294,7 @@ codegen(int *e, int *le)
         else if (*e == GLO) {
             ++e;
             lst = 0;
-            if (*(e + 1) == LI) { printf("    lw $v0, %.*s($gp)\n", ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]); ++e; }
+            if (*(e + 1) == LI) { printf("    lw   $v0, %.*s($gp)\n", ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]); ++e; }
             else if (*(e + 1) == LC) { printf("    lb $v0, %.*s($gp)\n", ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]); ++e; }
             else if (*(e + 1) == PSH) {
                 printf("    addi $t%d, $gp, %.*s\n", ++st, ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]);
@@ -304,7 +304,7 @@ codegen(int *e, int *le)
         }
         else if (*e == LOC) {
             lst = 0;
-            if (*(e + 2) == LI) { printf("    lw $v0, -%d($fp)\n", (*++e) << 2); ++e; }
+            if (*(e + 2) == LI) { printf("    lw   $v0, -%d($fp)\n", (*++e) << 2); ++e; }
             else if (*(e + 2) == LC) { printf("    lb $v0, -%d($fp)\n", (*++e) << 2); ++e; }
             else if (*(e + 2) == PSH) { printf("    addi $t%d, $fp, -%d\n", ++st, (*++e) << 2); ++e; lst = 1; }
             else { printf("    addi $v0, $fp, -%d\n", (*++e) << 2); }
@@ -320,16 +320,16 @@ codegen(int *e, int *le)
             ++e;
             if (*e <= 32767 && *e >= -65535) {
                 lst = 0;
-                if (*(e + 1) == LI || *(e + 1) == LC) { printf("    %s   $v0, %d($gp)\n", *(e + 1) == LI ? "lw" : "lb", ival); ++e; }
-                else if (*(e + 1) == PSH) { printf("    addi $t%d, $zero, %d\n", ++st, ival); ++e; lst = 1; }
-                else if (*(e + 1) == OR)  { printf("    ori  $v0, $t%d, %d\n", st--, ival); ++e; }
-                else if (*(e + 1) == XOR) { printf("    xori $v0, $t%d, %d\n", st--, ival); ++e; }
-                else if (*(e + 1) == AND) { printf("    andi $v0, $t%d, %d\n", st--, ival); ++e; }
-                else if (*(e + 1) == NE)  { printf("    addi $v0, $t%d, %d\n", st--, -ival); ++e; }
-                else if (*(e + 1) == SHL) { printf("    sll  $v0, $t%d, %d\n", st--, ival); ++e; }
-                else if (*(e + 1) == SHR) { printf("    srl  $v0, $t%d, %d\n", st--, ival); ++e; }
-                else if (*(e + 1) == ADD) { printf("    addi $v0, $t%d, %d\n", st--, ival); ++e; }
-                else if (*(e + 1) == SUB) { printf("    addi $v0, $t%d, %d\n", st--, -ival); ++e; }
+                if (*(e + 1) == LI || *(e + 1) == LC) { printf("    %s   $v0, %d($gp)\n", *(e + 1) == LI ? "lw" : "lb", *e); ++e; }
+                else if (*(e + 1) == PSH) { printf("    addi $t%d, $zero, %d\n", ++st, *e); ++e; lst = 1; }
+                else if (*(e + 1) == OR)  { printf("    ori  $v0, $t%d, %d\n", st--, *e); ++e; }
+                else if (*(e + 1) == XOR) { printf("    xori $v0, $t%d, %d\n", st--, *e); ++e; }
+                else if (*(e + 1) == AND) { printf("    andi $v0, $t%d, %d\n", st--, *e); ++e; }
+                else if (*(e + 1) == NE)  { printf("    addi $v0, $t%d, %d\n", st--, -*e); ++e; }
+                else if (*(e + 1) == SHL) { printf("    sll  $v0, $t%d, %d\n", st--, *e); ++e; }
+                else if (*(e + 1) == SHR) { printf("    srl  $v0, $t%d, %d\n", st--, *e); ++e; }
+                else if (*(e + 1) == ADD) { printf("    addi $v0, $t%d, %d\n", st--, *e); ++e; }
+                else if (*(e + 1) == SUB) { printf("    addi $v0, $t%d, %d\n", st--, -*e); ++e; }
                 else printf("    addi $v0, $zero, %d\n", *e);
             }
             else { printf("Imm too large: %d\n", *e); exit(-1); }
@@ -368,8 +368,8 @@ codegen(int *e, int *le)
                 printf("    j    _%.*s_end\n", current_func[Hash] & 0x3F, (char*)current_func[Name]); 
             }
         }
-        else if (*e == LI)  { if (lst) printf("    lw $v0, 0($t%d)\n", st); else printf("    lw   $v0, 0($v0)\n"); lst = 0; }
-        else if (*e == LC)  { if (lst) printf("    lb $v0, 0($t%d)\n", st); else printf("    lb   $v0, 0($v0)\n"); lst = 0; }
+        else if (*e == LI)  { if (lst) printf("    lw   $v0, 0($t%d)\n", st); else printf("    lw   $v0, 0($v0)\n"); lst = 0; }
+        else if (*e == LC)  { if (lst) printf("    lb   $v0, 0($t%d)\n", st); else printf("    lb   $v0, 0($v0)\n"); lst = 0; }
         else if (*e == SI)  { lst = 0; printf("    sw   $v0, 0($t%d)\n", st--); }
         else if (*e == SC)  { lst = 0; printf("    sb   $v0, 0($t%d)\n", st--); }
         else if (*e == PSH) { printf("    addi $t%d, $v0, 0\n", ++st); }
@@ -397,25 +397,26 @@ codegen(int *e, int *le)
         }
         else if (*e == NE)  { printf("    sub  $v0, $t%d, $v0\n", st--); }
         else if (*e == LT)  { printf("    slt  $v0, $t%d, $v0\n", st--); }
-        else if (*e == LE)  { printf("    slt  $v0, $v0, $t%d\n    addi $v0, $v0, -1", st--); }
+        else if (*e == LE)  { printf("    slt  $v0, $v0, $t%d\n    addi $v0, $v0, -1\n", st--); }
         else if (*e == GT)  { printf("    slt  $v0, $v0, $t%d\n", st--); }
-        else if (*e == GE)  { printf("    slt  $v0, $t%d, $v0\n    addi $v0, $v0, -1", st--); }
+        else if (*e == GE)  { printf("    slt  $v0, $t%d, $v0\n    addi $v0, $v0, -1\n", st--); }
         else if (*e == SHL) { printf("    sllv $v0, $t%d, $v0\n", st--); }
         else if (*e == SHR) { printf("    srlv $v0, $t%d, $v0\n", st--); }
         else if (*e == ADD) { printf("    add  $v0, $t%d, $v0\n", st--); }
         else if (*e == SUB) { printf("    sub  $v0, $t%d, $v0\n", st--); }
         else if (*e == MUL || *e == DIV || *e == MOD) {
+            if (!lst) { printf("    addi $t%d, $v0, 0\n", ++st); }
             i = 0;
             printf("    addi $sp, $sp, -%d\n", (st + 1) << 2);
             while (i <= st - 2) { printf("    sw   $t%d, %d($sp)\n", i, (st - i) << 2); ++i; }  // save temp stack
             while (i <= st) {
-                printf("    sw   $t%d, %d($sp)\n", *e - (st - i) - 1, (st - i) << 2); ++i;
+                printf("    sw   $t%d, %d($sp)\n", st + st - i - 1, (st - i) << 2); ++i;
             }
             if      (*e == MUL) { printf("    jal  mul\n"); }
             else if (*e == DIV) { printf("    jal  div\n"); }
             else if (*e == MOD) { printf("    jal  mod\n"); }
             i = 0;
-            while (i <= st - 2) { printf("    lw $t%d, %d($sp)\n", i, (st - i) << 2); ++i; }
+            while (i <= st - 2) { printf("    lw   $t%d, %d($sp)\n", i, (st - i) << 2); ++i; }
             printf("    addi $sp, $sp, %d\n", (st + 1) << 2);
             st = st - 2;
         }
@@ -448,7 +449,7 @@ void stmt()
     else if (tk == While) {
         *++e = CMMT; *++e = line;
         next();
-        a = e + 1;
+        *(int*)(a = ++e) = LABL;
         if (tk == '(') next(); else { printf("%d: open paren expected\n", line); exit(-1); }
         expr(Assign);
         if (tk == ')') next(); else { printf("%d: close paren expected\n", line); exit(-1); }
