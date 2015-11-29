@@ -489,7 +489,7 @@ int main(int argc, char **argv)
     char *td, *t;
 
     --argc; ++argv;
-    if (argc < 1) { printf("usage: c4 [-s] [-d] file ...\n"); return -1; }
+    if (argc < 1) { printf("usage: c5 file ...\n"); return -1; }
 
     poolsz = 256*1024; // arbitrary size
     if (!(sym = malloc(poolsz))) { printf("could not malloc(%d) symbol area\n", poolsz); return -1; }
