@@ -19,10 +19,11 @@ enum {
     BEQ  ,BNE  ,J    ,JAL  ,
     DB   ,DW   ,DD   ,STR  ,
     _ZERO,_AT  ,_V0  ,_V1  ,_A0  ,_A1  ,_A2  ,_A3  ,_T0  ,_T1  ,_T2  ,_T3  ,_T4  ,_T5  ,_T6  ,_T7  ,
-    _S0  ,_S1  ,_S2  ,_S3  ,_S4  ,_S5  ,_S6  ,_S7  ,_T8  ,_T9  ,_K0  ,_K1  ,_GP  ,_SP  ,_FP  ,_RA
+    _S0  ,_S1  ,_S2  ,_S3  ,_S4  ,_S5  ,_S6  ,_S7  ,_T8  ,_T9  ,_K0  ,_K1  ,_GP  ,_SP  ,_FP  ,_RA  ,
+    GLOB ,EXTN
 };
 
-enum { Id = 128, Reg, Imm, Labl };
+enum { Id = 128, Reg, Imm, Labl, Directive };
 
 char *p,
      *buf,
@@ -34,7 +35,8 @@ int  *sym,
      *e,
      tk,
      ival,
-     line
+     line,
+     merl
      ;
 
 void
@@ -73,6 +75,23 @@ next()
                 exit(-1);
             }
         }
+        else if (tk == '.') {
+            pp = p; tk = 0;
+            while ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9') || *p == '_')
+                tk = tk * 147 + *p++;
+            tk = (tk << 6) + (p - pp);
+            id = sym;
+            while (id[Tk]) {
+                if (tk == id[Hash] && !memcmp((char*)id[Name], pp, p - pp) && id[Tk] >= GLOB && id[Tk] <= EXTN) {
+                    tk = Directive;
+                    ival = id[Tk];
+                    return;
+                }
+                id = id + IdSize;
+            }
+            printf("%s:%d: bad directive `%.*s'\n", file, line, p - pp, pp);
+            exit(-1);
+        }
         else if ((tk >= 'a' && tk <= 'z') || (tk >= 'A' && tk <= 'Z') || tk == '_') {
             pp = p - 1;
             while ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9')|| *p == '_')
@@ -90,7 +109,9 @@ next()
             id[Name] = (int)pp;
             id[Hash] = tk;
             tk = id[Tk] = Id;
-            ival = id[Value];
+
+            sign = id[Value] >> 31;
+            ival = id[Value] == ~0 ? ~0 : (id[Value] + sign) ^ sign;   // calculate abs(id[Value])
             return;
         }
         else if (tk == '-' || (tk >= '0' && tk <= '9')) {
@@ -128,10 +149,12 @@ next()
 int
 main(int argc, char **argv)
 {
-    int fd, poolsz, i, *lsym, *d, *le;
+    int fd, poolsz, i, *lsym, *le, *rel;
     char *tp;
 
     int offset;
+
+    merl = 0;
 
     --argc; ++argv;
 
@@ -139,9 +162,12 @@ main(int argc, char **argv)
         if ((*argv)[1] == 'o') {
             if (! --argc) { printf("no output file\n"); exit(-1); }
             output = *++argv;
-            --argc; ++argv;
+        }
+        else if ((*argv)[1] == 'm') {
+            merl = 1;
         }
         else { printf("unknown argument `%s'\n", *argv); exit(-1); }
+        --argc; ++argv;
     }
 
     if (!output) { printf("no output file\n"); exit(-1); }
@@ -162,13 +188,14 @@ main(int argc, char **argv)
         "beq bne j jal "
         "db dw dd string "
         "zero at v0 v1 a0 a1 a2 a3 t0 t1 t2 t3 t4 t5 t6 t7 "
-        "s0 s1 s2 s3 s4 s5 s6 s7 t8 t9 k0 k1 gp sp fp ra ";
+        "s0 s1 s2 s3 s4 s5 s6 s7 t8 t9 k0 k1 gp sp fp ra "
+        "global extern ";
     i = ADD;
-    while (i <= _RA) { next(); id[Tk] = i++; }
+    while (i <= EXTN) { next(); id[Tk] = i++; }
 
     if (!(tp = p = malloc(poolsz))) { printf("could not malloc(%d) source area\n", poolsz); return -1; }
 
-    offset = 0;
+    offset = merl ? 12 : 0;
     lsym = sym;
     while (argc--) {
         if ((fd = open(file = *argv, 0)) < 0) { printf("could not open(%s)\n", *argv); return -1; }
@@ -236,16 +263,34 @@ main(int argc, char **argv)
                 }
                 else if (id[Tk] == STR) {
                     next(); if (tk != '"') { printf("%s:%d expect string\n", file, line); exit(-1); }
-                    offset = (offset - 4 + ival) & -sizeof(int);
+                    offset = (offset + ival) & -sizeof(int);
                     offset = offset + 4;
                 }
                 else {
-                    d = id;
-                    if (d[Tk] == Labl) { printf("%s:%d duplicate label `%.*s'\n", file, line, d[Hash] & 0x3F, (char*)d[Name]); }
+                    if (id[Tk] == Labl && id[Value] != ~0) { printf("%s:%id iduplicate label `%.*s'\n", file, line, id[Hash] & 0x3F, (char*)id[Name]); }
+                    id[Tk] = Labl;
+                    id[Value] = offset;
                     next();
                     if (tk != ':') { printf("%s:%d bad label\n", file, line); exit(-1); }
-                    d[Tk] = Labl;
-                    d[Value] = offset;
+                }
+            }
+            else if (tk == Directive) {
+                if (ival == GLOB) {
+                    next(); if (tk != Id || id[Tk] != Labl) { printf("%s:%d bad global directive `%.*s'\n", file, line, id[Hash] & 0x3F, (char*)id[Name]); exit(-1); }
+                    id[Value] = -id[Value];
+                }
+                else if (ival == EXTN) {
+                    next(); 
+                    if (tk != Id) { printf("%s:%d bad extern directive `%.*s'\n", file, line, id[Hash] & 0x3F, (char*)id[Name]); exit(-1); }
+                    if (tk == Id || id[Tk] != Labl) {
+                        // not exists in other files
+                        id[Tk] = Labl;
+                        id[Value] = ~0;
+                    }
+                }
+                else {
+                    printf("%s:%d unsupported directive `%.*s'\n", file, line, id[Hash] & 0x3F, (char*)id[Name]);
+                    exit(-1);
                 }
             }
             else { printf("%s:%d bad inst\n", file, line); exit(-1); }
@@ -254,6 +299,14 @@ main(int argc, char **argv)
         }
 
         ++argv;
+    }
+
+    rel = (int*)((int)e + offset);
+
+    if (merl) {
+        *e++ = (0x04 << 26) | (0x02);
+        *e++ = offset;
+        e++;    // padding for file length
     }
 
     p = tp;
@@ -332,6 +385,24 @@ main(int argc, char **argv)
                 next(); i = i | ((ival & 0x1F) << 16);  next();
                 next(); i = i | ((ival & 0x1F) << 21);  next();
                 next(); 
+                if (merl && tk == Id && id[Tk] == Labl) {
+                    if (ival == ~0) {
+                        // external labels
+                        *rel++ = 0x11;
+                        *rel++ = (int)e - (int)le;
+                        *rel++ = id[Hash] & 0x3F;
+                        memcpy((char*)rel, (char*)id[Name], id[Hash] & 0x3F);
+                        rel = (int*)((int)rel + (id[Hash] & 0x3F) + sizeof(int) & -sizeof(int));
+                    }
+                    else {
+                        *rel++ = 1;
+                        *rel++ = (int)e - (int)le;
+                    }
+                }
+                else if (ival == ~0) {
+                    printf("unresolved label: `%.*s'\n", id[Hash] & 0x3F, (char*)id[Name]);
+                    exit(-1);
+                }
                 i = i | (ival & ((1 << 16) - 1));
             }
             else if (
@@ -352,6 +423,24 @@ main(int argc, char **argv)
                 else if (id[Tk] == SB)      i = i | (0x28 << 26);
                 next(); i = i | ((ival & 0x1F) << 16);  next();
                 next();
+                if (merl && tk == Id && id[Tk] == Labl) {
+                    if (ival == ~0) {
+                        // external labels
+                        *rel++ = 0x11;
+                        *rel++ = (int)e - (int)le;
+                        *rel++ = id[Hash] & 0x3F;
+                        memcpy((char*)rel, (char*)id[Name], id[Hash] & 0x3F);
+                        rel = (int*)((int)rel + (id[Hash] & 0x3F) + sizeof(int) & -sizeof(int));
+                    }
+                    else {
+                        *rel++ = 1;
+                        *rel++ = (int)e - (int)le;
+                    }
+                }
+                else if (ival == ~0) {
+                    printf("unresolved label: `%.*s'\n", id[Hash] & 0x3F, (char*)id[Name]);
+                    exit(-1);
+                }
                 i = i | (ival & ((1 << 16) - 1));
                 next();
                 next(); i = i | ((ival & 0x1F) << 21);  next();
@@ -364,6 +453,18 @@ main(int argc, char **argv)
                 next(); i = i | ((ival & 0x1F) << 16);  next();
                 next(); i = i | ((ival & 0x1F) << 21);  next();
                 next(); 
+                if (merl && tk == Id && id[Tk] == Labl && ival == ~0) {
+                    // external labels
+                    *rel++ = 0x11;
+                    *rel++ = (int)e - (int)le;
+                    *rel++ = id[Hash] & 0x3F;
+                    memcpy((char*)rel, (char*)id[Name], id[Hash] & 0x3F);
+                    rel = (int*)((int)rel + (id[Hash] & 0x3F) + sizeof(int) & -sizeof(int));
+                }
+                else if (ival == ~0) {
+                    printf("unresolved label: `%.*s'\n", id[Hash] & 0x3F, (char*)id[Name]);
+                    exit(-1);
+                }
                 if (id[Tk] == Labl) ival = (ival - ((int)e - (int)le) - 4) >> 2;
                 i = i | (ival & ((1 << 16) - 1));
             }
@@ -373,6 +474,24 @@ main(int argc, char **argv)
                 i = ((id[Tk] == J ? 0x02 : 3) << 26);
                 next();
                 if (id[Tk] == Labl) ival = (ival) >> 2;
+                if (merl && tk == Id && id[Tk] == Labl) {
+                    if (ival == ~0) {
+                        // external labels
+                        *rel++ = 0x11;
+                        *rel++ = (int)e - (int)le;
+                        *rel++ = id[Hash] & 0x3F;
+                        memcpy((char*)rel, (char*)id[Name], id[Hash] & 0x3F);
+                        rel = (int*)((int)rel + (id[Hash] & 0x3F) + sizeof(int) & -sizeof(int));
+                    }
+                    else {
+                        *rel++ = 1;
+                        *rel++ = (int)e - (int)le;
+                    }
+                }
+                else if (ival == ~0) {
+                    printf("unresolved label: `%.*s'\n", id[Hash] & 0x3F, (char*)id[Name]);
+                    exit(-1);
+                }
                 i = i | (ival << 6 >> 6);
             }
             else if (
@@ -380,6 +499,24 @@ main(int argc, char **argv)
             ) {
                 next();
                 i = ival;
+                if (merl && tk == Id && id[Tk] == Labl) {
+                    if (ival == ~0) {
+                        // external labels
+                        *rel++ = 0x11;
+                        *rel++ = (int)e - (int)le;
+                        *rel++ = id[Hash] & 0x3F;
+                        memcpy((char*)rel, (char*)id[Name], id[Hash] & 0x3F);
+                        rel = (int*)((int)rel + (id[Hash] & 0x3F) + sizeof(int) & -sizeof(int));
+                    }
+                    else {
+                        *rel++ = 1;
+                        *rel++ = (int)e - (int)le;
+                    }
+                }
+                else if (ival == ~0) {
+                    printf("unresolved label: `%.*s'\n", id[Hash] & 0x3F, (char*)id[Name]);
+                    exit(-1);
+                }
             }
             *e++ = i;
         }
@@ -391,14 +528,33 @@ main(int argc, char **argv)
         else if (tk == Id && id[Tk] == Labl) {
             next();
         }
+        else if (tk == Directive) {
+            next();
+        }
         next();
     }
+
+    if (merl) {
+        id = sym;
+        while (id[Tk]) {
+            if (id[Tk] == Labl && id[Value] != ~0 && id[Value] < 0) {
+                *rel++ = 0x05;
+                *rel++ = -id[Value];
+                *rel++ = id[Hash] & 0x3F;
+                memcpy((char*)rel, (char*)id[Name], id[Hash] & 0x3F);
+                rel = (int*)((int)rel + (id[Hash] & 0x3F) + sizeof(int) & -sizeof(int));
+            }
+            id = id + IdSize;
+        }
+    }
+
+    le[2] = (int)rel - (int)le;
 
     if ((fd = open(output,
                     O_CREAT | O_WRONLY,
                     S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)) < 0) { printf("open returned %d\n", fd); exit(-1); }
 
-    write(fd, le, (int)e - (int)le);
+    write(fd, le, (int)rel - (int)le);
     close(fd);
 
     free(sym);

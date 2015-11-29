@@ -618,10 +618,12 @@ int main(int argc, char **argv)
                                 "    lw   $fp, 0($sp)\n"
                                 "    addi $sp, $sp, 4\n"
                                 "    jr   $ra\n"
-                                "\n"
+                                "\n.global %.*s\n",
+                                current_func[Hash] & 0x3F, (char*)current_func[Name]
                             );
                     }
                     else if (tk != ';') { printf("%d: bad function decl\n", line); exit(-1); }
+                    else { printf("\n.extern %.*s\n", current_func[Hash] & 0x3F, (char*)current_func[Name]); }
                     id = sym; // unwind symbol table locals
                     while (id[Tk]) {
                         if (id[Class] == Loc || id[Class] == Arg) {
