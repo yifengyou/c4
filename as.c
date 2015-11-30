@@ -193,13 +193,13 @@ main(int argc, char **argv)
     i = ADD;
     while (i <= EXTN) { next(); id[Tk] = i++; }
 
-    if (!(tp = p = malloc(poolsz))) { printf("could not malloc(%d) source area\n", poolsz); return -1; }
+    if (!(tp = p = malloc(poolsz))) { printf("could not malloc(%d) source area\n", poolsz); exit(-1); }
 
     offset = merl ? 12 : 0;
     lsym = sym;
     while (argc--) {
-        if ((fd = open(file = *argv, 0)) < 0) { printf("could not open(%s)\n", *argv); return -1; }
-        if ((i = read(fd, p, poolsz - 1)) <= 0) { printf("read() returned %d\n", i); return -1; }
+        if ((fd = open(file = *argv, 0)) < 0) { printf("could not open(%s)\n", *argv); exit(-1); }
+        if ((i = read(fd, p, poolsz - (p - tp))) <= 0) { printf("read() returned %d\n", i); exit(-1); }
         close(fd);
 
         line = 1;
@@ -309,6 +309,22 @@ main(int argc, char **argv)
         e++;    // padding for file length
     }
 
+    /**
+     * *--------*--------*--------*
+     * |        | Reloc  | Extern |
+     * *--------*--------*--------*
+     * | B-Type |   /    |  0x02  |
+     * *--------*--------*--------*
+     * | I-Type |  0x11  |  0x12  |
+     * *--------*--------*--------*
+     * | J-Type |  0x21  |  0x22  |
+     * *--------*--------*--------*
+     * |   DW   |  0x31  |  0x32  |
+     * *--------*--------*--------*
+     *
+     * Global : 0x00
+     */
+
     p = tp;
     next();
     while (tk) {
@@ -388,14 +404,14 @@ main(int argc, char **argv)
                 if (merl && tk == Id && id[Tk] == Labl) {
                     if (ival == ~0) {
                         // external labels
-                        *rel++ = 0x11;
+                        *rel++ = 0x12;
                         *rel++ = (int)e - (int)le;
                         *rel++ = id[Hash] & 0x3F;
                         memcpy((char*)rel, (char*)id[Name], id[Hash] & 0x3F);
                         rel = (int*)((int)rel + (id[Hash] & 0x3F) + sizeof(int) & -sizeof(int));
                     }
                     else {
-                        *rel++ = 1;
+                        *rel++ = 0x11;
                         *rel++ = (int)e - (int)le;
                     }
                 }
@@ -426,14 +442,14 @@ main(int argc, char **argv)
                 if (merl && tk == Id && id[Tk] == Labl) {
                     if (ival == ~0) {
                         // external labels
-                        *rel++ = 0x11;
+                        *rel++ = 0x12;
                         *rel++ = (int)e - (int)le;
                         *rel++ = id[Hash] & 0x3F;
                         memcpy((char*)rel, (char*)id[Name], id[Hash] & 0x3F);
                         rel = (int*)((int)rel + (id[Hash] & 0x3F) + sizeof(int) & -sizeof(int));
                     }
                     else {
-                        *rel++ = 1;
+                        *rel++ = 0x11;
                         *rel++ = (int)e - (int)le;
                     }
                 }
@@ -455,7 +471,7 @@ main(int argc, char **argv)
                 next(); 
                 if (merl && tk == Id && id[Tk] == Labl && ival == ~0) {
                     // external labels
-                    *rel++ = 0x11;
+                    *rel++ = 0x02;
                     *rel++ = (int)e - (int)le;
                     *rel++ = id[Hash] & 0x3F;
                     memcpy((char*)rel, (char*)id[Name], id[Hash] & 0x3F);
@@ -477,14 +493,14 @@ main(int argc, char **argv)
                 if (merl && tk == Id && id[Tk] == Labl) {
                     if (ival == ~0) {
                         // external labels
-                        *rel++ = 0x11;
+                        *rel++ = 0x22;
                         *rel++ = (int)e - (int)le;
                         *rel++ = id[Hash] & 0x3F;
                         memcpy((char*)rel, (char*)id[Name], id[Hash] & 0x3F);
                         rel = (int*)((int)rel + (id[Hash] & 0x3F) + sizeof(int) & -sizeof(int));
                     }
                     else {
-                        *rel++ = 1;
+                        *rel++ = 0x21;
                         *rel++ = (int)e - (int)le;
                     }
                 }
@@ -502,14 +518,14 @@ main(int argc, char **argv)
                 if (merl && tk == Id && id[Tk] == Labl) {
                     if (ival == ~0) {
                         // external labels
-                        *rel++ = 0x11;
+                        *rel++ = 0x32;
                         *rel++ = (int)e - (int)le;
                         *rel++ = id[Hash] & 0x3F;
                         memcpy((char*)rel, (char*)id[Name], id[Hash] & 0x3F);
                         rel = (int*)((int)rel + (id[Hash] & 0x3F) + sizeof(int) & -sizeof(int));
                     }
                     else {
-                        *rel++ = 1;
+                        *rel++ = 0x31;
                         *rel++ = (int)e - (int)le;
                     }
                 }
@@ -536,9 +552,10 @@ main(int argc, char **argv)
 
     if (merl) {
         id = sym;
+        // globals
         while (id[Tk]) {
             if (id[Tk] == Labl && id[Value] != ~0 && id[Value] < 0) {
-                *rel++ = 0x05;
+                *rel++ = 0x00;
                 *rel++ = -id[Value];
                 *rel++ = id[Hash] & 0x3F;
                 memcpy((char*)rel, (char*)id[Name], id[Hash] & 0x3F);
