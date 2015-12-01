@@ -775,4 +775,6 @@ int main(int argc, char **argv)
     free(sym);
     free(te);
     free(td);
+
+    return 0;
 }
