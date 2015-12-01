@@ -67,6 +67,7 @@ void next()
             }
             id[Name] = (int)pp;
             id[Hash] = tk;
+            id[Class] = 0;
             tk = id[Tk] = Id;
             return;
         }
@@ -145,7 +146,7 @@ void expr(int lev)
             t = 0;
             while (tk != ')') { expr(Assign); *++e = PSH; ++t; if (tk == ',') next(); }
             next();
-            if (d[Class] == Fun) { *++e = CALL; *++e = t; *++e = (int)d; }
+            if ((d[Class] == Fun || d[Class] == 0)) { *++e = CALL; *++e = t; *++e = (int)d; }
             else { printf("%d: bad function call\n", line); exit(-1); }
             ty = d[Type];
         }
