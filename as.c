@@ -413,7 +413,7 @@ main(int argc, char **argv)
                         *rel++ = (int)e - (int)le;
                     }
                 }
-                else if (ival == ~0) {
+                else if (tk == Id && ival == ~0) {
                     printf("unresolved label: `%.*s'\n", id[Hash] & 0x3F, (char*)id[Name]);
                     exit(-1);
                 }
@@ -451,7 +451,7 @@ main(int argc, char **argv)
                         *rel++ = (int)e - (int)le;
                     }
                 }
-                else if (ival == ~0) {
+                else if (tk == Id && ival == ~0) {
                     printf("unresolved label: `%.*s'\n", id[Hash] & 0x3F, (char*)id[Name]);
                     exit(-1);
                 }
@@ -475,7 +475,7 @@ main(int argc, char **argv)
                     memcpy((char*)rel, (char*)id[Name], id[Hash] & 0x3F);
                     rel = (int*)((int)rel + (id[Hash] & 0x3F) + sizeof(int) & -sizeof(int));
                 }
-                else if (ival == ~0) {
+                else if (tk == Id && ival == ~0) {
                     printf("unresolved label: `%.*s'\n", id[Hash] & 0x3F, (char*)id[Name]);
                     exit(-1);
                 }
@@ -502,7 +502,7 @@ main(int argc, char **argv)
                         *rel++ = (int)e - (int)le;
                     }
                 }
-                else if (ival == ~0) {
+                else if (tk == Id && ival == ~0) {
                     printf("unresolved label: `%.*s'\n", id[Hash] & 0x3F, (char*)id[Name]);
                     exit(-1);
                 }
@@ -527,7 +527,7 @@ main(int argc, char **argv)
                         *rel++ = (int)e - (int)le;
                     }
                 }
-                else if (ival == ~0) {
+                else if (tk == Id && ival == ~0) {
                     printf("unresolved label: `%.*s'\n", id[Hash] & 0x3F, (char*)id[Name]);
                     exit(-1);
                 }
