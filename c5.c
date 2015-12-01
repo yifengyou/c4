@@ -368,7 +368,7 @@ codegen(int *e, int *le)
                 else if (*(e + 1) == SUB) { tl = sprintf(buff, "    addi $v0, $t%d, %d\n", st--, -*e); buff = buff + tl; ++e; }
                 else { tl = sprintf(buff, "    addi $v0, $zero, %d\n", *e); buff = buff + tl; }
             }
-            else { printf(buff, "Imm too large: %d\n", *e); exit(-1); }
+            else { printf("Imm too large: %d\n", *e); exit(-1); }
         }
         else if (*e == JMP) {
             // address indepent code
