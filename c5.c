@@ -156,7 +156,7 @@ void expr(int lev)
         else {
             if (d[Class] == Loc) { *++e = LOC; *++e = d[Val]; }
             else if (d[Class] == Arg) { *++e = ARG; *++e = d[Val]; }
-            else if (d[Class] == Glo) { *++e = GLO; *++e = d[Val]; }
+            else if (d[Class] == Glo) { *++e = GLO; *++e = (int)d; }
             else { *++e = GLO; *++e = (int)d; d[Type] = INT; } // undefined symbol treated as extern variable
             *++e = ((ty = d[Type]) == CHAR) ? LC : LI;
         }
