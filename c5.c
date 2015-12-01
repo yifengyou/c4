@@ -13,7 +13,8 @@
 #include <fcntl.h>
 
 char *p, *lp, // current position in source code
-     *data;   // data/bss pointer
+     *data,   // data/bss pointer
+     *buff;
 
 int *e, *le,  // current position in emitted code
     *id,      // currently parsed identifier
@@ -24,7 +25,8 @@ int *e, *le,  // current position in emitted code
     ty,       // current expression type
     loc,      // local variable offset
     line,     // current line number
-    st;
+    st,
+    tl;
 
 // tokens and classes (operators last and in precedence order)
 enum {
@@ -154,8 +156,7 @@ void expr(int lev)
         else {
             if (d[Class] == Loc) { *++e = LOC; *++e = d[Val]; }
             else if (d[Class] == Arg) { *++e = ARG; *++e = d[Val]; }
-            else if (d[Class] == Glo) { *++e = GLO; *++e = (int)d; }
-            else { printf("%d: undefined variable\n", line); exit(-1); }
+            else { *++e = GLO; *++e = (int)d; d[Type] = INT; } // undefined symbol treated as extern variable
             *++e = ((ty = d[Type]) == CHAR) ? LC : LI;
         }
     }
@@ -291,138 +292,211 @@ codegen(int *e, int *le)
     st = -1;
     lst = 0;    // last in stack
     while (e != le) {
-        if (*e == STR)      { printf("    addi $v0, $gp, s%u\n", *++e); lst = 0; }
+        if (*e == STR)      {
+            tl = sprintf(buff, "    addi $v0, $gp, s%u\n", *++e);
+            buff = buff + tl; lst = 0;
+        }
         else if (*e == GLO) {
             ++e;
             lst = 0;
-            if (*(e + 1) == LI) { printf("    lw   $v0, %.*s($gp)\n", ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]); ++e; }
-            else if (*(e + 1) == LC) { printf("    lb $v0, %.*s($gp)\n", ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]); ++e; }
-            else if (*(e + 1) == PSH) {
-                printf("    addi $t%d, $gp, %.*s\n", ++st, ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]);
-                ++e; lst = 1;
+            if (*(e + 1) == LI) {
+                tl = sprintf(buff, "    lw   $v0, %.*s($gp)\n", ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]);
+                buff = buff + tl; ++e;
             }
-            else { printf("    addi $v0, $gp, %.*s\n", ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]); }
+            else if (*(e + 1) == LC) {
+                tl = sprintf(buff, "    lb $v0, %.*s($gp)\n", ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]);
+                buff = buff + tl; ++e;
+            }
+            else if (*(e + 1) == PSH) {
+                tl = sprintf(buff, "    addi $t%d, $gp, %.*s\n", ++st, ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]);
+                buff = buff + tl; ++e; lst = 1;
+            }
+            else {
+                tl = sprintf(buff, "    addi $v0, $gp, %.*s\n", ((int*)(*e))[Hash] & 0x3F, (char*)((int*)(*e))[Name]);
+                buff = buff + tl;
+            }
         }
         else if (*e == LOC) {
             lst = 0;
-            if (*(e + 2) == LI) { printf("    lw   $v0, -%d($fp)\n", (*++e) << 2); ++e; }
-            else if (*(e + 2) == LC) { printf("    lb $v0, -%d($fp)\n", (*++e) << 2); ++e; }
-            else if (*(e + 2) == PSH) { printf("    addi $t%d, $fp, -%d\n", ++st, (*++e) << 2); ++e; lst = 1; }
-            else { printf("    addi $v0, $fp, -%d\n", (*++e) << 2); }
+            if (*(e + 2) == LI) {
+                tl = sprintf(buff, "    lw   $v0, -%d($fp)\n", (*++e) << 2);
+                buff = buff + tl; ++e;
+            }
+            else if (*(e + 2) == LC) {
+                tl = sprintf(buff, "    lb $v0, -%d($fp)\n", (*++e) << 2);
+                buff = buff + tl; ++e;
+            }
+            else if (*(e + 2) == PSH) {
+                tl = sprintf(buff, "    addi $t%d, $fp, -%d\n", ++st, (*++e) << 2);
+                buff = buff + tl; ++e; lst = 1;
+            }
+            else {
+                tl = printf(buff, "    addi $v0, $fp, -%d\n", (*++e) << 2);
+                buff = buff + tl;
+            }
         }
         else if (*e == ARG) {
             lst = 0;
-            if (*(e + 2) == LI) { printf("    lw $v0, %d($fp)\n", (*++e + 2) << 2); ++e; }
-            else if (*(e + 2) == LC) { printf("    lb $v0, %d($fp)\n", (*++e + 2) << 2); ++e; }
-            else if (*(e + 2) == PSH) { printf("    addi $t%d, $fp, %d\n", ++st, (*++e + 2) << 2); ++e; lst = 1; }
-            else { printf("    addi $v0, $fp, %d\n", (*++e + 2) << 2); }
+            if (*(e + 2) == LI) { tl = sprintf(buff, "    lw $v0, %d($fp)\n", (*++e + 2) << 2); buff = buff + tl; ++e; }
+            else if (*(e + 2) == LC) { tl = sprintf(buff, "    lb $v0, %d($fp)\n", (*++e + 2) << 2); buff = buff + tl; ++e; }
+            else if (*(e + 2) == PSH) {
+                tl = sprintf(buff, "    addi $t%d, $fp, %d\n", ++st, (*++e + 2) << 2);
+                buff = buff + tl; ++e; lst = 1; 
+            }
+            else { tl = sprintf(buff, "    addi $v0, $fp, %d\n", (*++e + 2) << 2); buff = buff + tl; }
         }
         else if (*e == IMM) {
             ++e;
             if (*e <= 32767 && *e >= -65535) {
                 lst = 0;
-                if (*(e + 1) == LI || *(e + 1) == LC) { printf("    %s   $v0, %d($gp)\n", *(e + 1) == LI ? "lw" : "lb", *e); ++e; }
-                else if (*(e + 1) == PSH) { printf("    addi $t%d, $zero, %d\n", ++st, *e); ++e; lst = 1; }
-                else if (*(e + 1) == OR)  { printf("    ori  $v0, $t%d, %d\n", st--, *e); ++e; }
-                else if (*(e + 1) == XOR) { printf("    xori $v0, $t%d, %d\n", st--, *e); ++e; }
-                else if (*(e + 1) == AND) { printf("    andi $v0, $t%d, %d\n", st--, *e); ++e; }
-                else if (*(e + 1) == NE)  { printf("    addi $v0, $t%d, %d\n", st--, -*e); ++e; }
-                else if (*(e + 1) == SHL) { printf("    sll  $v0, $t%d, %d\n", st--, *e); ++e; }
-                else if (*(e + 1) == SHR) { printf("    srl  $v0, $t%d, %d\n", st--, *e); ++e; }
-                else if (*(e + 1) == ADD) { printf("    addi $v0, $t%d, %d\n", st--, *e); ++e; }
-                else if (*(e + 1) == SUB) { printf("    addi $v0, $t%d, %d\n", st--, -*e); ++e; }
-                else printf("    addi $v0, $zero, %d\n", *e);
+                if (*(e + 1) == LI || *(e + 1) == LC) {
+                    tl = sprintf(buff, "    %s   $v0, %d($gp)\n", *(e + 1) == LI ? "lw" : "lb", *e);
+                    buff = buff + tl; ++e;
+                }
+                else if (*(e + 1) == PSH) {
+                    tl = sprintf(buff, "    addi $t%d, $zero, %d\n", ++st, *e);
+                    buff = buff + tl; ++e; lst = 1; 
+                }
+                else if (*(e + 1) == OR)  { tl = sprintf(buff, "    ori  $v0, $t%d, %d\n", st--, *e); buff = buff + tl; ++e; }
+                else if (*(e + 1) == XOR) { tl = sprintf(buff, "    xori $v0, $t%d, %d\n", st--, *e); buff = buff + tl; ++e; }
+                else if (*(e + 1) == AND) { tl = sprintf(buff, "    andi $v0, $t%d, %d\n", st--, *e); buff = buff + tl; ++e; }
+                else if (*(e + 1) == NE)  { tl = sprintf(buff, "    addi $v0, $t%d, %d\n", st--, -*e); buff = buff + tl; ++e; }
+                else if (*(e + 1) == SHL) { tl = sprintf(buff, "    sll  $v0, $t%d, %d\n", st--, *e); buff = buff + tl; ++e; }
+                else if (*(e + 1) == SHR) { tl = sprintf(buff, "    srl  $v0, $t%d, %d\n", st--, *e); buff = buff + tl; ++e; }
+                else if (*(e + 1) == ADD) { tl = sprintf(buff, "    addi $v0, $t%d, %d\n", st--, *e); buff = buff + tl; ++e; }
+                else if (*(e + 1) == SUB) { tl = sprintf(buff, "    addi $v0, $t%d, %d\n", st--, -*e); buff = buff + tl; ++e; }
+                else { tl = sprintf(buff, "    addi $v0, $zero, %d\n", *e); buff = buff + tl; }
             }
-            else { printf("Imm too large: %d\n", *e); exit(-1); }
+            else { tl = sprintf(buff, "Imm too large: %d\n", *e); buff = buff + tl; exit(-1); }
         }
         else if (*e == JMP) {
             // address indepent code
-            printf("    beq  $zero, $zero, _%.*s_%u\n", current_func[Hash] & 0x3F, (char*)current_func[Name], *++e); 
+            tl = sprintf(buff, "    beq  $zero, $zero, _%.*s_%u\n", current_func[Hash] & 0x3F, (char*)current_func[Name], *++e);
+            buff = buff + tl; 
         }
         else if (*e == CALL) {
             ++e; i = 0; lst = 0;
-            printf("    addi $sp, $sp, -%d\n", (st + 1) << 2);
-            while (i <= st - *e) { printf("    sw   $t%d, %d($sp)\n", i, (st - i) << 2); ++i; }  // save temp stack
+            tl = sprintf(buff, "    addi $sp, $sp, -%d\n", (st + 1) << 2); buff = buff + tl;
+            while (i <= st - *e) {
+                tl = sprintf(buff, "    sw   $t%d, %d($sp)\n", i, (st - i) << 2);
+                buff = buff + tl; ++i; 
+            }  // save temp stack
             while (i <= st) {
-                printf("    sw   $t%d, %d($sp)\n", (st - *e) + (st - i) + 1, (st - i) << 2); ++i;
+                tl = sprintf(buff, "    sw   $t%d, %d($sp)\n", (st - *e) + (st - i) + 1, (st - i) << 2); buff = buff + tl; ++i;
             }
 
-            printf("    jal  %.*s\n", ((int*)(*(e + 1)))[Hash] & 0x3F, (char*)((int*)(*(e + 1)))[Name]); 
+            tl = sprintf(buff, "    jal  %.*s\n", ((int*)(*(e + 1)))[Hash] & 0x3F, (char*)((int*)(*(e + 1)))[Name]);
+            buff = buff + tl; 
 
             i = 0;
-            while (i <= st - *e) { printf("    lw $t%d, %d($sp)\n", i, (st - i) << 2); ++i; }
-            printf("    addi $sp, $sp, %d\n", (st + 1) << 2);
+            while (i <= st - *e) { tl = sprintf(buff, "    lw $t%d, %d($sp)\n", i, (st - i) << 2); buff = buff + tl; ++i; }
+            tl = sprintf(buff, "    addi $sp, $sp, %d\n", (st + 1) << 2); buff = buff + tl;
             st = st - *e;
 
             ++e;
         }
         else if (*e == BZ)  {
-            if (lst) { printf("    beq  $t%d, $zero, _%.*s_%u\n", st, current_func[Hash] & 0x3F, (char*)current_func[Name], *++e); }
-            else { printf("    beq  $v0, $zero, _%.*s_%u\n", current_func[Hash] & 0x3F, (char*)current_func[Name], *++e); }
+            if (lst) {
+                tl = sprintf(buff, "    beq  $t%d, $zero, _%.*s_%u\n", 
+                        st, current_func[Hash] & 0x3F, (char*)current_func[Name], *++e);
+                buff = buff + tl;
+            }
+            else {
+                tl = sprintf(buff, "    beq  $v0, $zero, _%.*s_%u\n", current_func[Hash] & 0x3F, (char*)current_func[Name], *++e);
+                buff = buff + tl; 
+            }
         }
         else if (*e == BNZ) {
-            if (lst) { printf("    bne  $t%d, $zero, _%.*s_%u\n", st, current_func[Hash] & 0x3F, (char*)current_func[Name], *++e); }
-            else { printf("    bne  $v0, $zero, _%.*s_%u\n", current_func[Hash] & 0x3F, (char*)current_func[Name], *++e); }
+            if (lst) {
+                tl = sprintf(buff, "    bne  $t%d, $zero, _%.*s_%u\n",
+                        st, current_func[Hash] & 0x3F, (char*)current_func[Name], *++e);
+                buff = buff + tl; 
+            }
+            else {
+                tl = sprintf(buff, "    bne  $v0, $zero, _%.*s_%u\n",
+                        current_func[Hash] & 0x3F, (char*)current_func[Name], *++e);
+                buff = buff + tl;
+            }
         }
         else if (*e == LEV) {
             if (e + 1 != le) {  // at the end of function
-                printf("    j    _%.*s_end\n", current_func[Hash] & 0x3F, (char*)current_func[Name]); 
+                tl = sprintf(buff, "    j    _%.*s_end\n", current_func[Hash] & 0x3F, (char*)current_func[Name]); buff = buff + tl; 
             }
         }
-        else if (*e == LI)  { if (lst) printf("    lw   $v0, 0($t%d)\n", st); else printf("    lw   $v0, 0($v0)\n"); lst = 0; }
-        else if (*e == LC)  { if (lst) printf("    lb   $v0, 0($t%d)\n", st); else printf("    lb   $v0, 0($v0)\n"); lst = 0; }
-        else if (*e == SI)  { lst = 0; printf("    sw   $v0, 0($t%d)\n", st--); }
-        else if (*e == SC)  { lst = 0; printf("    sb   $v0, 0($t%d)\n", st--); }
-        else if (*e == PSH) { printf("    addi $t%d, $v0, 0\n", ++st); }
-        else if (*e == OR)  { lst = 0; printf("    or   $v0, $t%d, $v0\n", st--); }
-        else if (*e == XOR) { lst = 0; printf("    xor  $v0, $t%d, $v0\n", st--); }
-        else if (*e == AND) { lst = 0; printf("    and  $v0, $t%d, $v0\n", st--); }
+        else if (*e == LI)  {
+            if (lst) { tl = sprintf(buff, "    lw   $v0, 0($t%d)\n", st); buff = buff + tl; }
+            else { tl = sprintf(buff, "    lw   $v0, 0($v0)\n"); buff = buff + tl; }
+            lst = 0;
+        }
+        else if (*e == LC)  {
+            if (lst) { tl = sprintf(buff, "    lb   $v0, 0($t%d)\n", st); buff = buff + tl; }
+            else { tl = sprintf(buff, "    lb   $v0, 0($v0)\n"); buff = buff + tl;}
+            lst = 0;
+        }
+        else if (*e == SI)  { lst = 0; tl = sprintf(buff, "    sw   $v0, 0($t%d)\n", st--); buff = buff + tl; }
+        else if (*e == SC)  { lst = 0; tl = sprintf(buff, "    sb   $v0, 0($t%d)\n", st--); buff = buff + tl; }
+        else if (*e == PSH) { tl = sprintf(buff, "    addi $t%d, $v0, 0\n", ++st); buff = buff + tl; }
+        else if (*e == OR)  { lst = 0; tl = sprintf(buff, "    or   $v0, $t%d, $v0\n", st--); buff = buff + tl; }
+        else if (*e == XOR) { lst = 0; tl = sprintf(buff, "    xor  $v0, $t%d, $v0\n", st--); buff = buff + tl; }
+        else if (*e == AND) { lst = 0; tl = sprintf(buff, "    and  $v0, $t%d, $v0\n", st--); buff = buff + tl; }
         else if (*e == EQ)  {
             lst = 0;
             if (*(e + 1) == BNZ) {
                 e = e + 2;
-                printf("    beq  $v0, $t%d, _%.*s_%u\n", st--, current_func[Hash] & 0x3F, (char*)current_func[Name], *e);
+                tl = sprintf(buff, "    beq  $v0, $t%d, _%.*s_%u\n",
+                        st--, current_func[Hash] & 0x3F, (char*)current_func[Name], *e);
+                buff = buff + tl;
             }
             else if (*(e + 1) == BZ) {
                 e = e + 2;
-                printf("    bne  $v0, $t%d, _%.*s_%u\n", st--, current_func[Hash] & 0x3F, (char*)current_func[Name], *e);
+                tl = sprintf(buff, "    bne  $v0, $t%d, _%.*s_%u\n",
+                        st--, current_func[Hash] & 0x3F, (char*)current_func[Name], *e);
+                buff = buff + tl;
             }
             else {
-                printf(
+                tl = sprintf(buff, 
                         "    beq  $v0, $t%d, 2\n"
                         "    addi $v0, $zero, 0\n"
                         "    beq  $zero, $zero, 1\n"
                         "    addi $v0, $zero, 1\n", st--
                     );
+                buff = buff + tl;
             }
         }
-        else if (*e == NE)  { printf("    sub  $v0, $t%d, $v0\n", st--); }
-        else if (*e == LT)  { printf("    slt  $v0, $t%d, $v0\n", st--); }
-        else if (*e == LE)  { printf("    slt  $v0, $v0, $t%d\n    addi $v0, $v0, -1\n", st--); }
-        else if (*e == GT)  { printf("    slt  $v0, $v0, $t%d\n", st--); }
-        else if (*e == GE)  { printf("    slt  $v0, $t%d, $v0\n    addi $v0, $v0, -1\n", st--); }
-        else if (*e == SHL) { printf("    sllv $v0, $t%d, $v0\n", st--); }
-        else if (*e == SHR) { printf("    srlv $v0, $t%d, $v0\n", st--); }
-        else if (*e == ADD) { printf("    add  $v0, $t%d, $v0\n", st--); }
-        else if (*e == SUB) { printf("    sub  $v0, $t%d, $v0\n", st--); }
+        else if (*e == NE)  { tl = sprintf(buff, "    sub  $v0, $t%d, $v0\n", st--); buff = buff + tl; }
+        else if (*e == LT)  { tl = sprintf(buff, "    slt  $v0, $t%d, $v0\n", st--); buff = buff + tl; }
+        else if (*e == LE)  { tl = sprintf(buff, "    slt  $v0, $v0, $t%d\n    addi $v0, $v0, -1\n", st--); buff = buff + tl; }
+        else if (*e == GT)  { tl = sprintf(buff, "    slt  $v0, $v0, $t%d\n", st--); buff = buff + tl; }
+        else if (*e == GE)  { tl = sprintf(buff, "    slt  $v0, $t%d, $v0\n    addi $v0, $v0, -1\n", st--); buff = buff + tl; }
+        else if (*e == SHL) { tl = sprintf(buff, "    sllv $v0, $t%d, $v0\n", st--); buff = buff + tl; }
+        else if (*e == SHR) { tl = sprintf(buff, "    srlv $v0, $t%d, $v0\n", st--); buff = buff + tl; }
+        else if (*e == ADD) { tl = sprintf(buff, "    add  $v0, $t%d, $v0\n", st--); buff = buff + tl; }
+        else if (*e == SUB) { tl = sprintf(buff, "    sub  $v0, $t%d, $v0\n", st--); buff = buff + tl; }
         else if (*e == MUL || *e == DIV || *e == MOD) {
-            if (!lst) { printf("    addi $t%d, $v0, 0\n", ++st); }
+            if (!lst) { tl = sprintf(buff, "    addi $t%d, $v0, 0\n", ++st); buff = buff + tl; }
             i = 0;
-            printf("    addi $sp, $sp, -%d\n", (st + 1) << 2);
-            while (i <= st - 2) { printf("    sw   $t%d, %d($sp)\n", i, (st - i) << 2); ++i; }  // save temp stack
+            tl = sprintf(buff, "    addi $sp, $sp, -%d\n", (st + 1) << 2); buff = buff + tl;
+            while (i <= st - 2) {
+                tl = sprintf(buff, "    sw   $t%d, %d($sp)\n", i, (st - i) << 2);
+                buff = buff + tl; ++i;
+            }  // save temp stack
             while (i <= st) {
-                printf("    sw   $t%d, %d($sp)\n", st + st - i - 1, (st - i) << 2); ++i;
+                tl = sprintf(buff, "    sw   $t%d, %d($sp)\n", st + st - i - 1, (st - i) << 2);
+                buff = buff + tl; ++i;
             }
-            if      (*e == MUL) { printf("    jal  mul\n"); }
-            else if (*e == DIV) { printf("    jal  div\n"); }
-            else if (*e == MOD) { printf("    jal  mod\n"); }
+            if      (*e == MUL) { tl = sprintf(buff, "    jal  mul\n"); buff = buff + tl; }
+            else if (*e == DIV) { tl = sprintf(buff, "    jal  div\n"); buff = buff + tl; }
+            else if (*e == MOD) { tl = sprintf(buff, "    jal  mod\n"); buff = buff + tl; }
             i = 0;
-            while (i <= st - 2) { printf("    lw   $t%d, %d($sp)\n", i, (st - i) << 2); ++i; }
-            printf("    addi $sp, $sp, %d\n", (st + 1) << 2);
+            while (i <= st - 2) { tl = sprintf(buff, "    lw   $t%d, %d($sp)\n", i, (st - i) << 2); buff = buff + tl; ++i; }
+            tl = sprintf(buff, "    addi $sp, $sp, %d\n", (st + 1) << 2); buff = buff + tl;
             st = st - 2;
         }
-        else if (*e == LABL){ printf("_%.*s_%u:\n", current_func[Hash] & 0x3F, (char*)current_func[Name], (int)e); }
-        else if (*e == CMMT){ printf("## line %d\n", *++e); }
+        else if (*e == LABL) {
+            tl = sprintf(buff, "_%.*s_%u:\n", current_func[Hash] & 0x3F, (char*)current_func[Name], (int)e);
+            buff = buff + tl;
+        }
+        else if (*e == CMMT) { tl = sprintf(buff, "## line %d\n", *++e); buff = buff + tl; }
         else { printf("Unknown inst: %d\n", *e); exit(-1); }
         ++e;
     }
@@ -488,18 +562,30 @@ int main(int argc, char **argv)
     int *le;
     int *te;
     char *td, *t;
+    char *tb;
+    char *output;
 
     --argc; ++argv;
-    if (argc < 1) { printf("usage: c5 file ...\n"); return -1; }
+    if (argc < 1) { printf("usage: c5 -o output file ...\n"); return -1; }
+
+    while (argc && **argv == '-') {
+        if ((*argv)[1] == 'o') {
+            if (! --argc) { printf("no output file\n"); exit(-1); }
+            output = *++argv;
+        }
+        --argc; ++argv;
+    }
 
     poolsz = 256*1024; // arbitrary size
     if (!(sym = malloc(poolsz))) { printf("could not malloc(%d) symbol area\n", poolsz); return -1; }
     if (!(le = e = malloc(poolsz))) { printf("could not malloc(%d) text area\n", poolsz); return -1; }
     if (!(data = malloc(poolsz))) { printf("could not malloc(%d) data area\n", poolsz); return -1; }
+    if (!(tb = buff = malloc(poolsz))) { printf("could not malloc(%d) buffer area\n", poolsz); return -1; }
 
     memset(sym,  0, poolsz);
     memset(e,    0, poolsz);
     memset(data, 0, poolsz);
+    memset(buff, 0, poolsz);
 
     te = e;
     td = data;
@@ -595,7 +681,8 @@ int main(int argc, char **argv)
                         }
                         le = e;
                         while (tk != '}') stmt();
-                        printf(
+                        tl = sprintf(
+                                buff,
                                 "\n%.*s:\n"
                                 "    addi $sp, $sp, -4\n"
                                 "    sw   $fp, 0($sp)\n"
@@ -605,15 +692,25 @@ int main(int argc, char **argv)
                                 "\n",
                                 current_func[Hash] & 0x3F, (char*)current_func[Name]
                             );
-                        if (i) printf("    addi $sp, $sp, -%d\n", i << 2);
+                        buff = buff + tl;
+                        if (i) {
+                            tl = sprintf(buff, "    addi $sp, $sp, -%d\n", i << 2);
+                            buff = buff + tl;
+                        }
                         codegen(le + 1, e + 1);
-                        printf(
+                        tl = sprintf(
+                                buff,
                                 "\n"
                                 "_%.*s_end:\n",
                                 current_func[Hash] & 0x3F, (char*)current_func[Name]
                             );
-                        if (i) printf("    addi $sp, $sp, -%d\n", i << 2);
-                        printf(
+                        buff = buff + tl;
+                        if (i) {
+                            tl = sprintf(buff, "    addi $sp, $sp, -%d\n", i << 2);
+                            buff = buff + tl;
+                        }
+                        tl = sprintf(
+                                buff,
                                 "    lw   $ra, 0($sp)\n"
                                 "    addi $sp, $sp, 4\n"
                                 "    lw   $fp, 0($sp)\n"
@@ -622,9 +719,13 @@ int main(int argc, char **argv)
                                 "\n.global %.*s\n",
                                 current_func[Hash] & 0x3F, (char*)current_func[Name]
                             );
+                        buff = buff + tl;
                     }
                     else if (tk != ';') { printf("%d: bad function decl\n", line); exit(-1); }
-                    else { printf("\n.extern %.*s\n", current_func[Hash] & 0x3F, (char*)current_func[Name]); }
+                    else {
+                        tl = sprintf(buff, "\n.extern %.*s\n", current_func[Hash] & 0x3F, (char*)current_func[Name]);
+                        buff = buff + tl;
+                    }
                     id = sym; // unwind symbol table locals
                     while (id[Tk]) {
                         if (id[Class] == Loc || id[Class] == Arg) {
@@ -638,7 +739,8 @@ int main(int argc, char **argv)
                 else {
                     id[Class] = Glo;
                     id[Val] = (int)data;
-                    printf("\n%.*s:\n    dd 0\n", id[Hash] & 0x3F, (char*)id[Name]);
+                    tl = sprintf(buff, "\n%.*s:\n    dd 0\n", id[Hash] & 0x3F, (char*)id[Name]);
+                    buff = buff + tl;
                 }
                 if (tk == ',') next();
             }
@@ -648,20 +750,27 @@ int main(int argc, char **argv)
 
     t = td;
     while (t < data) {
-        printf("s%u:\n", (int)t);
-        printf("    string \"");
+        tl = sprintf(buff, "s%u:\n", (int)t); buff = buff + tl;
+        tl = sprintf(buff, "    string \"");  buff = buff + tl;
         while (*t) {
-            if (*t == '\n')         { printf("\\n"); }
-            else if (*t == '"')     { printf("\\\""); }
-            else if (*t == '\'')    { printf("\\\'"); }
-            else if (*t == '\\')    { printf("\\\\"); }
-            else                    { printf("%c", *t); }
+            if (*t == '\n')         { tl = sprintf(buff, "\\n"); buff = buff + tl; }
+            else if (*t == '"')     { tl = sprintf(buff, "\\\""); buff = buff + tl; }
+            else if (*t == '\'')    { tl = sprintf(buff, "\\\'"); buff = buff + tl; }
+            else if (*t == '\\')    { tl = sprintf(buff, "\\\\"); buff = buff + tl; }
+            else                    { tl = sprintf(buff, "%c", *t); buff = buff + tl; }
             ++t;
         }
-        printf("\"\n\n");
+        tl = sprintf(buff, "\"\n\n"); buff = buff + tl;
         t = (char*)((int)t + sizeof(int) & -sizeof(int));
     }
 
+    if ((fd = open(output,
+                    O_CREAT | O_WRONLY,
+                    S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)) < 0) { printf("open returned %d\n", fd); exit(-1); }
+    write(fd, tb, (int)buff - (int)tb);
+    close(fd);
+
+    free(tb);
     free(sym);
     free(te);
     free(td);
