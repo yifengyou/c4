@@ -740,7 +740,7 @@ int main(int argc, char **argv)
                 else {
                     id[Class] = Glo;
                     id[Val] = (int)data;
-                    tl = sprintf(buff, "\n%.*s:\n    dd 0\n", id[Hash] & 0x3F, (char*)id[Name]);
+                    tl = sprintf(buff, "\n%.*s:\n    dd 0\n.global %.*s\n", id[Hash] & 0x3F, (char*)id[Name], id[Hash] & 0x3F, (char*)id[Name]);
                     buff = buff + tl;
                 }
                 if (tk == ',') next();
