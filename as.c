@@ -399,7 +399,7 @@ main(int argc, char **argv)
                 next(); i = i | ((ival & 0x1F) << 16);  next();
                 next(); i = i | ((ival & 0x1F) << 21);  next();
                 next(); 
-                if (merl && tk == Id && id[Tk] == Labl) {
+                if (merl && tk == Id && (id[Tk] == Labl || id[Tk] == Id)) {
                     if (ival == ~0) {
                         // external labels
                         *rel++ = 0x12;
@@ -437,7 +437,7 @@ main(int argc, char **argv)
                 else if (id[Tk] == SB)      i = i | (0x28 << 26);
                 next(); i = i | ((ival & 0x1F) << 16);  next();
                 next();
-                if (merl && tk == Id && id[Tk] == Labl) {
+                if (merl && tk == Id && (id[Tk] == Labl || id[Tk] == Id)) {
                     if (ival == ~0) {
                         // external labels
                         *rel++ = 0x12;
@@ -467,7 +467,7 @@ main(int argc, char **argv)
                 next(); i = i | ((ival & 0x1F) << 16);  next();
                 next(); i = i | ((ival & 0x1F) << 21);  next();
                 next(); 
-                if (merl && tk == Id && id[Tk] == Labl && ival == ~0) {
+                if (merl && tk == Id && (id[Tk] == Labl || id[Tk] == Id) && ival == ~0) {
                     // external labels
                     *rel++ = 0x02;
                     *rel++ = (int)e - (int)le;
@@ -488,7 +488,7 @@ main(int argc, char **argv)
                 i = ((id[Tk] == J ? 0x02 : 3) << 26);
                 next();
                 if (id[Tk] == Labl) ival = (ival) >> 2;
-                if (merl && tk == Id && id[Tk] == Labl) {
+                if (merl && tk == Id && (id[Tk] == Labl || id[Tk] == Id)) {
                     if (ival == ~0) {
                         // external labels
                         *rel++ = 0x22;
@@ -513,7 +513,7 @@ main(int argc, char **argv)
             ) {
                 next();
                 i = ival;
-                if (merl && tk == Id && id[Tk] == Labl) {
+                if (merl && tk == Id && (id[Tk] == Labl || id[Tk] == Id)) {
                     if (ival == ~0) {
                         // external labels
                         *rel++ = 0x32;
