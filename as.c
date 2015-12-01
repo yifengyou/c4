@@ -506,7 +506,7 @@ main(int argc, char **argv)
                     printf("unresolved label: `%.*s'\n", id[Hash] & 0x3F, (char*)id[Name]);
                     exit(-1);
                 }
-                i = i | (ival << 6 >> 6);
+                i = i | (ival & ((1 << 16) - 1));
             }
             else if (
                     id[Tk] >= DB && id[Tk] <= DD
