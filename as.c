@@ -274,8 +274,8 @@ main(int argc, char **argv)
             }
             else if (tk == Directive) {
                 if (ival == GLOB) {
-                    next(); if (tk != Id || id[Tk] != Labl) { printf("%s:%d bad global directive `%.*s'\n", file, line, id[Hash] & 0x3F, (char*)id[Name]); exit(-1); }
-                    id[Value] = -id[Value];
+                    next();
+                    if (tk != Id) { printf("%s:%d bad global directive `%.*s'\n", file, line, id[Hash] & 0x3F, (char*)id[Name]); exit(-1); }
                 }
                 else if (ival == EXTN) {
                     next(); 
@@ -543,7 +543,12 @@ main(int argc, char **argv)
             next();
         }
         else if (tk == Directive) {
-            next();
+            if (ival == GLOB) {
+                next();
+                if (tk != Id || id[Tk] != Labl) { printf("%s:%d bad global directive `%.*s'\n", file, line, id[Hash] & 0x3F, (char*)id[Name]); exit(-1); }
+                id[Value] = -id[Value];
+            }
+            else next();
         }
         next();
     }
