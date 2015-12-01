@@ -101,7 +101,7 @@ next()
             while (id[Tk]) {
                 if (tk == id[Hash] && !memcmp((char*)id[Name], pp, p - pp)) {
                     tk = Id;
-                    ival = id[Value];
+                    ival = id[Value] == ~0 ? ~0 : (id[Value] < 0 ? -id[Value] : id[Value]);   // calculate abs(id[Value])
                     return;
                 }
                 id = id + IdSize;
@@ -110,8 +110,7 @@ next()
             id[Hash] = tk;
             tk = id[Tk] = Id;
 
-            sign = id[Value] >> 31;
-            ival = id[Value] == ~0 ? ~0 : (id[Value] + sign) ^ sign;   // calculate abs(id[Value])
+            ival = id[Value] == ~0 ? ~0 : (id[Value] < 0 ? -id[Value] : id[Value]);   // calculate abs(id[Value])
             return;
         }
         else if (tk == '-' || (tk >= '0' && tk <= '9')) {
@@ -319,7 +318,7 @@ main(int argc, char **argv)
      * *--------*--------*--------*
      * | J-Type |  0x21  |  0x22  |
      * *--------*--------*--------*
-     * |   DW   |  0x31  |  0x32  |
+     * |   DD   |  0x31  |  0x32  |
      * *--------*--------*--------*
      *
      * Global : 0x00
@@ -511,7 +510,7 @@ main(int argc, char **argv)
                 i = i | (ival << 6 >> 6);
             }
             else if (
-                    id[Tk] >= DB && id[Tk] <= DW
+                    id[Tk] >= DB && id[Tk] <= DD
             ) {
                 next();
                 i = ival;

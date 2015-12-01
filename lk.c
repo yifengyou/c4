@@ -97,7 +97,7 @@ main(int argc, char **argv)
     while (o < lo) {
         memcpy((char*)d, (char*)(o + 3), (o[1] - 12));
         tlen = o[1] - 12;
-        nd = (int*)((int)d + o[1]);
+        nd = (int*)((int)d + tlen);
         t = (int*)((int)o + o[1]);
         o = (int*)((int)o + o[2]);
 
@@ -128,13 +128,25 @@ main(int argc, char **argv)
                     else if (*t == 0x12) {  // I-type
                         i = *(int*)((int)d + t[1] - 12);
                         *(int*)((int)d + t[1] - 12) = (g[1] & ((1 << 16) - 1)) | (i & (((1 << 16) - 1) << 16));
+                        if (merl) {
+                            *rel++ = 0x11;
+                            *rel++ = ((int)d - (int)dest + t[1] - 12);
+                        }
                     }
                     else if (*t == 0x22) {  // J-type
                         i = *(int*)((int)d + t[1] - 12);
                         *(int*)((int)d + t[1] - 12) = ((g[1] >> 2) & ((1 << 26) - 1)) | (i & (((1 << 6) - 1) << 26));
+                        if (merl) {
+                            *rel++ = 0x21;
+                            *rel++ = ((int)d - (int)dest + t[1] - 12);
+                        }
                     }
-                    else if (*t == 0x32) {  // DW
+                    else if (*t == 0x32) {  // DD
                         *(int*)((int)d + t[1] - 12) = g[1];
+                        if (merl) {
+                            *rel++ = 0x31;
+                            *rel++ = ((int)d - (int)dest + t[1] - 12);
+                        }
                     }
                 }
                 else {
@@ -153,20 +165,32 @@ main(int argc, char **argv)
                 i = *(int*)((int)d + t[1] - 12);
                 *(int*)((int)d + t[1] - 12) = ((i + offset) & ((1 << 16) - 1)) | (i & (((1 << 16) - 1) << 16));
                 t = t + 2;
+                if (merl) {
+                    *rel++ = 0x11;
+                    *rel++ = ((int)d - (int)dest + t[1] - 12);
+                }
             }
             else if (*t == 0x21) {              // J-type
                 i = *(int*)((int)d + t[1] - 12);
                 *(int*)((int)d + t[1] - 12) = ((i + (offset >> 2)) & ((1 << 26) - 1)) | (i & (((1 << 6) - 1) << 26));
                 t = t + 2;
+                if (merl) {
+                    *rel++ = 0x21;
+                    *rel++ = ((int)d - (int)dest + t[1] - 12);
+                }
             }
-            else if (*t == 0x31) {              // DW
+            else if (*t == 0x31) {              // DD
                 *(int*)((int)d + t[1] - 12) = *(int*)((int)d + t[1] - 12) + offset;
                 t = t + 2;
+                if (merl) {
+                    *rel++ = 0x31;
+                    *rel++ = ((int)d - (int)dest + t[1] - 12);
+                }
             }
         }
 
         d = nd;
-        offset = offset + tlen - 12;
+        offset = offset + tlen;
     }
 
     if ((fd = open(output,
