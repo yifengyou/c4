@@ -109,8 +109,7 @@ next()
             id[Name] = (int)pp;
             id[Hash] = tk;
             tk = id[Tk] = Id;
-
-            ival = id[Value] == ~0 ? ~0 : (id[Value] < 0 ? -id[Value] : id[Value]);   // calculate abs(id[Value])
+            ival = id[Value] = ~0;
             return;
         }
         else if (tk == '-' || (tk >= '0' && tk <= '9')) {
