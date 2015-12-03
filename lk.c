@@ -73,15 +73,17 @@ main(int argc, char **argv)
                 while (*c) { i = i * 147 + *c++; }
                 t[1] = t[1] + offset;
                 t[2] = (i << 6) + t[2];
-                i = t[1]; nn = nbuf;
-                if (i) {
-                    while (i) { *nn++ = (i % 10) + '0'; i = i / 10; }
-                    write(lfd, nbuf, nn - nbuf);
+                if (label) {
+                    i = t[1]; nn = nbuf;
+                    if (i) {
+                        while (i) { *nn++ = (i % 10) + '0'; i = i / 10; }
+                        write(lfd, nbuf, nn - nbuf);
+                    }
+                    else { write(lfd, "0", 1); }
+                    write(lfd, " ", 1);
+                    write(lfd, (char*)(t + 3), t[2] & 0x3F);
+                    write(lfd, "\n", 1);
                 }
-                else { write(lfd, "0", 1); }
-                write(lfd, " ", 1);
-                write(lfd, (char*)(t + 3), t[2] & 0x3F);
-                write(lfd, "\n", 1);
                 t = (int*)((int)t + 12 + (t[2] & 0x3F) + sizeof(int) & -sizeof(int));
             }
             else if ((*t & 0xF) == 2) {
