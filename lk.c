@@ -8,24 +8,29 @@ int
 main(int argc, char **argv)
 {
     int poolsz, merl, fd, offset, codelen;
-    char *output, *file, *c;
+    char *output, *file, *c, *label, *nbuf, *nn;
     int *orig,
         *dest,
         *o, *d, *nd, *rel,
         *t, *lo,
         i, tlen,
-        *glob, **tg, *g
-        ;
+        *glob, **tg, *g,
+        lfd;
 
     --argc; ++argv;
 
     merl = 0;
+    label = 0;  // NULL
 
     while (argc && **argv == '-') {
         if ((*argv)[1] == 'm') { merl = 1; }
         else if ((*argv)[1] == 'o') {
             if (! --argc) { printf("no output file\n"); exit(-1); }
             output = *++argv;
+        }
+        else if ((*argv)[1] == 'l') {
+            if (! --argc) { printf("no label file\n"); exit(-1); }
+            label = *++argv;
         }
         --argc; ++argv;
     }
@@ -35,6 +40,10 @@ main(int argc, char **argv)
     poolsz = 256 * 1024;
     if (!(orig = malloc(poolsz))) { printf("could not malloc(%d) original space\n", poolsz); exit(-1); }
     if (!(dest = malloc(poolsz))) { printf("could not malloc(%d) destination space\n", poolsz); exit(-1); }
+
+    if (label && (lfd = open(label, O_CREAT | O_WRONLY,
+                    S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)) < 0) { printf("open label returned %d\n", lfd); exit(-1); }
+    if (label && (!(nbuf = malloc(12)))) { printf("could not malloc(12) number buffer\n"); exit(-1); }
 
     o = orig;
     glob = 0;
@@ -64,6 +73,15 @@ main(int argc, char **argv)
                 while (*c) { i = i * 147 + *c++; }
                 t[1] = t[1] + offset;
                 t[2] = (i << 6) + t[2];
+                i = t[1]; nn = nbuf;
+                if (i) {
+                    while (i) { *nn++ = (i % 10) + '0'; i = i / 10; }
+                    write(lfd, nbuf, nn - nbuf);
+                }
+                else { write(lfd, "0", 1); }
+                write(lfd, " ", 1);
+                write(lfd, (char*)(t + 3), t[2] & 0x3F);
+                write(lfd, "\n", 1);
                 t = (int*)((int)t + 12 + (t[2] & 0x3F) + sizeof(int) & -sizeof(int));
             }
             else if ((*t & 0xF) == 2) {
@@ -92,6 +110,11 @@ main(int argc, char **argv)
         *d++ = ((0x04 << 26) | (0x02));
         *d++ = codelen + 12;
         d++;
+    }
+
+    if (label) {
+        close(lfd);
+        free(nbuf);
     }
 
     while (o < lo) {
