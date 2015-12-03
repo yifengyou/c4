@@ -49,7 +49,7 @@ main(int argc, char **argv)
     glob = 0;
     tg = &glob;
     codelen = 0;
-    offset = merl ? 0 : -12;
+    offset = merl ? 12 : 0;
     while (argc) {
         if ((fd = open(file = *argv, 0)) < 0) { printf("could not open(%s)\n", file); exit(-1); }
         if ((i = read(fd, (char*)o, poolsz - (o - orig))) <= 0) { printf("read() returned %d\n", i); exit(-1); }
@@ -71,7 +71,7 @@ main(int argc, char **argv)
                 i = 0;
                 c = (char*)(t + 3);
                 while (*c) { i = i * 147 + *c++; }
-                t[1] = t[1] + offset;
+                t[1] = t[1] + offset - 12;
                 t[2] = (i << 6) + t[2];
                 if (label) {
                     i = t[1]; nn = nbuf + 12;
@@ -101,7 +101,7 @@ main(int argc, char **argv)
     }
 
     *tg = 0;
-    offset = merl ? 0 : -12;
+    offset = merl ? 12 : 0;
     rel = (int*)((int)dest + (merl ? codelen + 12 : codelen));
 
     o = orig;
@@ -130,14 +130,14 @@ main(int argc, char **argv)
             if ((*t & 3) == 0) {    // modified when calculating hash
                 if (merl) {
                     *rel++ = 0x00;
-                    *rel++ = offset + t[1];
+                    *rel++ = t[1];
                     *rel++ = t[2] & 0x3F;
                     memcpy((char*)rel, (char*)(t + 3), t[2] & 0x3F);
                     rel = (int*)((int)rel + (t[2] & 0x3F) + sizeof(int) & -sizeof(int));
                 }
                 t = (int*)((int)t + 12 + (t[2] & 0x3F) + sizeof(int) & -sizeof(int));
             }
-            else if ((*t & 0xF) == 2) {
+            else if ((*t & 0xF) == 2) { // external symbols
                 i = 0;
                 c = (char*)(t + 3);
                 while (*c) { i = i * 147 + *c++; }
@@ -147,7 +147,7 @@ main(int argc, char **argv)
                 if (g) {
                     if (*t == 0x02) {       // B-type
                         i = *(int*)((int)d + t[1] - 12);
-                        *(int*)((int)d + t[1] - 12) = (((g[1] - ((int)d - (int)dest + t[1] - 12) - 4) >> 2) & ((1 << 16) - 1)) 
+                        *(int*)((int)d + t[1] - 12) = (((g[1] - (t[1] + offset - 12) - 4) >> 2) & ((1 << 16) - 1)) 
                                                         | (i & (((1 << 16) - 1) << 16));
                     }
                     else if (*t == 0x12) {  // I-type
@@ -155,7 +155,7 @@ main(int argc, char **argv)
                         *(int*)((int)d + t[1] - 12) = (g[1] & ((1 << 16) - 1)) | (i & (((1 << 16) - 1) << 16));
                         if (merl) {
                             *rel++ = 0x11;
-                            *rel++ = ((int)d - (int)dest + t[1] - 12);
+                            *rel++ = (t[1] + offset - 12);
                         }
                     }
                     else if (*t == 0x22) {  // J-type
@@ -163,21 +163,21 @@ main(int argc, char **argv)
                         *(int*)((int)d + t[1] - 12) = ((g[1] >> 2) & ((1 << 26) - 1)) | (i & (((1 << 6) - 1) << 26));
                         if (merl) {
                             *rel++ = 0x21;
-                            *rel++ = ((int)d - (int)dest + t[1] - 12);
+                            *rel++ = (t[1] + offset - 12);
                         }
                     }
                     else if (*t == 0x32) {  // DD
                         *(int*)((int)d + t[1] - 12) = g[1];
                         if (merl) {
                             *rel++ = 0x31;
-                            *rel++ = ((int)d - (int)dest + t[1] - 12);
+                            *rel++ = (t[1] + offset - 12);
                         }
                     }
                 }
                 else {
                     if (merl) {
                         *rel++ = *t;
-                        *rel++ = offset + t[1];
+                        *rel++ = t[1] + offset - 12;
                         *rel++ = t[2];
                         memcpy((char*)rel, (char*)(t + 3), t[2]);
                         rel = (int*)((int)rel + t[2] + sizeof(int) & -sizeof(int));
@@ -188,27 +188,27 @@ main(int argc, char **argv)
             }
             else if (*t == 0x11) {              // I-type
                 i = *(int*)((int)d + t[1] - 12);
-                *(int*)((int)d + t[1] - 12) = ((i + offset) & ((1 << 16) - 1)) | (i & (((1 << 16) - 1) << 16));
+                *(int*)((int)d + t[1] - 12) = ((i + offset - 12) & ((1 << 16) - 1)) | (i & (((1 << 16) - 1) << 16));
                 if (merl) {
                     *rel++ = 0x11;
-                    *rel++ = ((int)d - (int)dest + t[1] - 12);
+                    *rel++ = (t[1] + offset - 12);
                 }
                 t = t + 2;
             }
             else if (*t == 0x21) {              // J-type
                 i = *(int*)((int)d + t[1] - 12);
-                *(int*)((int)d + t[1] - 12) = ((i + (offset >> 2)) & ((1 << 26) - 1)) | (i & (((1 << 6) - 1) << 26));
+                *(int*)((int)d + t[1] - 12) = ((i + ((offset - 12) >> 2)) & ((1 << 26) - 1)) | (i & (((1 << 6) - 1) << 26));
                 if (merl) {
                     *rel++ = 0x21;
-                    *rel++ = ((int)d - (int)dest + t[1] - 12);
+                    *rel++ = (t[1] + offset - 12);
                 }
                 t = t + 2;
             }
             else if (*t == 0x31) {              // DD
-                *(int*)((int)d + t[1] - 12) = *(int*)((int)d + t[1] - 12) + offset;
+                *(int*)((int)d + t[1] - 12) = *(int*)((int)d + t[1] - 12) + offset - 12;
                 if (merl) {
                     *rel++ = 0x31;
-                    *rel++ = ((int)d - (int)dest + t[1] - 12);
+                    *rel++ = (t[1] + offset - 12);
                 }
                 t = t + 2;
             }
