@@ -320,19 +320,19 @@ codegen(int *e, int *le)
         else if (*e == LOC) {
             lst = 0;
             if (*(e + 2) == LI) {
-                tl = sprintf(buff, "    lw   $v0, -%d($fp)\n", (*++e) << 2);
+                tl = sprintf(buff, "    lw   $v0, -%d($fp)\n", (*++e + 1) << 2);
                 buff = buff + tl; ++e;
             }
             else if (*(e + 2) == LC) {
-                tl = sprintf(buff, "    lb $v0, -%d($fp)\n", (*++e) << 2);
+                tl = sprintf(buff, "    lb $v0, -%d($fp)\n", (*++e + 1) << 2);
                 buff = buff + tl; ++e;
             }
             else if (*(e + 2) == PSH) {
-                tl = sprintf(buff, "    addi $t%d, $fp, -%d\n", ++st, (*++e) << 2);
+                tl = sprintf(buff, "    addi $t%d, $fp, -%d\n", ++st, (*++e + 1) << 2);
                 buff = buff + tl; ++e; lst = 1;
             }
             else {
-                tl = printf(buff, "    addi $v0, $fp, -%d\n", (*++e) << 2);
+                tl = printf(buff, "    addi $v0, $fp, -%d\n", (*++e + 1) << 2);
                 buff = buff + tl;
             }
         }
@@ -707,7 +707,7 @@ int main(int argc, char **argv)
                             );
                         buff = buff + tl;
                         if (i) {
-                            tl = sprintf(buff, "    addi $sp, $sp, -%d\n", i << 2);
+                            tl = sprintf(buff, "    addi $sp, $sp, %d\n", i << 2);
                             buff = buff + tl;
                         }
                         tl = sprintf(
