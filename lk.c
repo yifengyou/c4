@@ -189,28 +189,28 @@ main(int argc, char **argv)
             else if (*t == 0x11) {              // I-type
                 i = *(int*)((int)d + t[1] - 12);
                 *(int*)((int)d + t[1] - 12) = ((i + offset) & ((1 << 16) - 1)) | (i & (((1 << 16) - 1) << 16));
-                t = t + 2;
                 if (merl) {
                     *rel++ = 0x11;
                     *rel++ = ((int)d - (int)dest + t[1] - 12);
                 }
+                t = t + 2;
             }
             else if (*t == 0x21) {              // J-type
                 i = *(int*)((int)d + t[1] - 12);
                 *(int*)((int)d + t[1] - 12) = ((i + (offset >> 2)) & ((1 << 26) - 1)) | (i & (((1 << 6) - 1) << 26));
-                t = t + 2;
                 if (merl) {
                     *rel++ = 0x21;
                     *rel++ = ((int)d - (int)dest + t[1] - 12);
                 }
+                t = t + 2;
             }
             else if (*t == 0x31) {              // DD
                 *(int*)((int)d + t[1] - 12) = *(int*)((int)d + t[1] - 12) + offset;
-                t = t + 2;
                 if (merl) {
                     *rel++ = 0x31;
                     *rel++ = ((int)d - (int)dest + t[1] - 12);
                 }
+                t = t + 2;
             }
         }
 
