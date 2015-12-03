@@ -74,10 +74,10 @@ main(int argc, char **argv)
                 t[1] = t[1] + offset;
                 t[2] = (i << 6) + t[2];
                 if (label) {
-                    i = t[1]; nn = nbuf;
+                    i = t[1]; nn = nbuf + 12;
                     if (i) {
-                        while (i) { *nn++ = (i % 10) + '0'; i = i / 10; }
-                        write(lfd, nbuf, nn - nbuf);
+                        while (i) { *--nn = (i % 10) + '0'; i = i / 10; }
+                        write(lfd, nn, nbuf + 12 - nn);
                     }
                     else { write(lfd, "0", 1); }
                     write(lfd, " ", 1);
