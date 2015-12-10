@@ -55,7 +55,7 @@ main(int argc, char **argv)
         if ((i = read(fd, (char*)o, poolsz - (o - orig))) <= 0) { printf("read() returned %d\n", i); exit(-1); }
         close(fd);
         if (*o != ((0x04 << 26) | (0x02))) { printf("file %s is not MERL\n", file); exit(-1); }
-        if (o[2] != i) { printf("out of pool size, when processing %s\n", file); exit(-1); }
+        if (o[2] != i) { printf("out of pool size, when processing %s (filesize: %d, but %d read)\n", file, o[2], i); exit(-1); }
 
         tlen = o[1] - 12;
         codelen = codelen + tlen;
