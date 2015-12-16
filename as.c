@@ -181,7 +181,7 @@ main(int argc, char **argv)
     memset(buf, 0, poolsz);
     memset(e, 0, poolsz);
 
-    p = "add addu sub subu and or xor nor slt sltu sll srl sra sllv srlv srav jr jalr scall eret mfco mtco "
+    p = "add addu sub subu and or xor nor slt sltu sll srl sra sllv srlv srav jr jalr syscall eret mfco mtco "
         "addi addiu andi ori xori lui lw lh lb sw sh sb slti sltiu "
         "beq bne j jal "
         "db dw dd string "
@@ -376,7 +376,7 @@ main(int argc, char **argv)
             else if (
                     id[Tk] == ERET
             ) {
-                i = (0x0A << 26) | (0x12);
+                i = (0x10 << 26) | (0x12);
             }
             else if (
                     id[Tk] == MFCO || id[Tk] == MTCO
