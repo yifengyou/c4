@@ -566,9 +566,8 @@ main(int argc, char **argv)
             }
             id = id + IdSize;
         }
+        le[2] = (int)rel - (int)le;
     }
-
-    le[2] = (int)rel - (int)le;
 
     if ((fd = open(output,
                     O_CREAT | O_WRONLY,
