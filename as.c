@@ -227,6 +227,8 @@ main(int argc, char **argv)
                 }
                 else if (id[Tk] >= JR && id[Tk] <= JALR) {
                     next(); if (tk != Reg) { printf("%s:%d expect register\n", file, line); exit(-1); }
+                    next(); if (tk != ',') { printf("%s:%d expect `,'", file, line); exit(-1); }
+                    next(); if (tk != Reg) { printf("%s:%d expect register\n", file, line); exit(-1); }
                     offset = offset + 4;
                 }
                 else if (id[Tk] == SCALL) {
@@ -360,11 +362,16 @@ main(int argc, char **argv)
                 next(); i = i | ((ival & 0x1F) << 6);
             }
             else if (
-                    id[Tk] == JR    ||
+                    id[Tk] == JR
+            ) {
+                i = i | 0x08;
+                next(); i = i | ((ival & 0x1F) << 21);
+            }
+            else if (
                     id[Tk] == JALR
             ) {
-                if      (id[Tk] == JR)      i = i | 0x08;
-                else if (id[Tk] == JALR)    i = i | 0x19;
+                i = i | 0x09;
+                next(); i = i | ((ival & 0x1F) << 11);  next();
                 next(); i = i | ((ival & 0x1F) << 21);
             }
             else if (
