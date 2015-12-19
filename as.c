@@ -225,7 +225,11 @@ main(int argc, char **argv)
                     next(); if (tk != Id && tk != Imm) { printf("%s:%d expect imm\n", file, line); exit(-1); }
                     offset = offset + 4;
                 }
-                else if (id[Tk] >= JR && id[Tk] <= JALR) {
+                else if (id[Tk] == JR) {
+                    next(); if (tk != Reg) { printf("%s:%d expect register\n", file, line); exit(-1); }
+                    offset = offset + 4;
+                }
+                else if (id[Tk] == JALR) {
                     next(); if (tk != Reg) { printf("%s:%d expect register\n", file, line); exit(-1); }
                     next(); if (tk != ',') { printf("%s:%d expect `,'", file, line); exit(-1); }
                     next(); if (tk != Reg) { printf("%s:%d expect register\n", file, line); exit(-1); }
@@ -388,6 +392,7 @@ main(int argc, char **argv)
             else if (
                     id[Tk] == MFCO || id[Tk] == MTCO
             ) {
+                if (id[Tk] == MTCO) i = i | 0x04;
                 next(); i = i | ((ival & 0x1F) << 16);  next();
                 next(); i = i | ((ival & 0x1F) << 11);
                 i = i | (0x10 << 26);
