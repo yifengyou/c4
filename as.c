@@ -56,6 +56,7 @@ next()
                 ival = 0;
                 while (*p >= '0' && *p <= '9') ival = ival * 10 + *p++ - '0';
                 tk = Reg;
+                return;
             }
             else {
                 pp = p; tk = 0;
@@ -375,8 +376,8 @@ main(int argc, char **argv)
                     id[Tk] == JALR
             ) {
                 i = i | 0x09;
-                next(); i = i | ((ival & 0x1F) << 11);  next();
-                next(); i = i | ((ival & 0x1F) << 21);
+                next(); i = i | ((ival & 0x1F) << 21);  next();
+                next(); i = i | ((ival & 0x1F) << 11);
             }
             else if (
                     id[Tk] == SCALL

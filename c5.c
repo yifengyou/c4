@@ -224,18 +224,26 @@ void expr(int lev)
         }
         else if (tk == Lor) {
             next();
+            *++e = PSH;
             *++e = BNZ;
             d = ++e;
             expr(Lan);
+            *++e = OR;
+            *++e = PSH;
             *(int*)(*d = (int)++e) = LABL;
+            *++e = OR;
             ty = INT;
         }
         else if (tk == Lan) {
             next();
+            *++e = PSH;
             *++e = BZ;
             d = ++e;
             expr(Or);
+            *++e = AND;
+            *++e = PSH;
             *(int*)(*d = (int)++e) = LABL;
+            *++e = AND;
             ty = INT;
         }
         else if (tk == Or)  { next(); *++e = PSH; expr(Xor); *++e = OR;  ty = INT; }
