@@ -227,8 +227,8 @@ void expr(int lev)
             *++e = PSH;
             *++e = BNZ;
             d = ++e;
-            expr(Lan);
             *++e = OR;
+            expr(Lan);
             *++e = PSH;
             *(int*)(*d = (int)++e) = LABL;
             *++e = OR;
@@ -239,8 +239,8 @@ void expr(int lev)
             *++e = PSH;
             *++e = BZ;
             d = ++e;
-            expr(Or);
             *++e = AND;
+            expr(Or);
             *++e = PSH;
             *(int*)(*d = (int)++e) = LABL;
             *++e = AND;

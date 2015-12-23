@@ -500,7 +500,7 @@ main(int argc, char **argv)
             ) {
                 i = ((id[Tk] == J ? 0x02 : 3) << 26);
                 next();
-                if (id[Tk] == Labl) ival = (ival) >> 2;
+                if (id[Tk] == Labl || tk == Imm) ival = (ival) >> 2;
                 if (merl && tk == Id && (id[Tk] == Labl || id[Tk] == Id)) {
                     if (ival == ~0) {
                         // external labels

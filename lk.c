@@ -7,7 +7,7 @@
 int 
 main(int argc, char **argv)
 {
-    int poolsz, merl, fd, offset, codelen;
+    int poolsz, merl, fd, offset, codelen, start;
     char *output, *file, *c, *label, *nbuf, *nn;
     int *orig,
         *dest,
@@ -21,6 +21,7 @@ main(int argc, char **argv)
 
     merl = 0;
     label = 0;  // NULL
+    start = 0;
 
     while (argc && **argv == '-') {
         if ((*argv)[1] == 'm') { merl = 1; }
@@ -31,6 +32,13 @@ main(int argc, char **argv)
         else if ((*argv)[1] == 'l') {
             if (! --argc) { printf("no label file\n"); exit(-1); }
             label = *++argv;
+        }
+        else if ((*argv)[1] == 's') {
+            if (! --argc) { printf("no start\n"); exit(-1); }
+            c = *++argv;
+            while (*c && *c >= '0' && *c <= '9') {
+                start = start * 10 + (*c++ - '0');
+            }
         }
         --argc; ++argv;
     }
@@ -71,7 +79,7 @@ main(int argc, char **argv)
                 i = 0;
                 c = (char*)(t + 3);
                 while (*c) { i = i * 147 + *c++; }
-                t[1] = t[1] + offset - 12;
+                t[1] = t[1] + offset - 12 + (merl ? 0 : start);
                 t[2] = (i << 6) + t[2];
                 if (label) {
                     i = t[1]; nn = nbuf + 12;
@@ -197,7 +205,7 @@ main(int argc, char **argv)
             }
             else if (*t == 0x21) {              // J-type
                 i = *(int*)((int)d + t[1] - 12);
-                *(int*)((int)d + t[1] - 12) = ((i + ((offset - 12) >> 2)) & ((1 << 26) - 1)) | (i & (((1 << 6) - 1) << 26));
+                *(int*)((int)d + t[1] - 12) = ((i + ((offset - 12 + (merl ? 0 : start)) >> 2)) & ((1 << 26) - 1)) | (i & (((1 << 6) - 1) << 26));
                 if (merl) {
                     *rel++ = 0x21;
                     *rel++ = (t[1] + offset - 12);
@@ -205,7 +213,7 @@ main(int argc, char **argv)
                 t = t + 2;
             }
             else if (*t == 0x31) {              // DD
-                *(int*)((int)d + t[1] - 12) = *(int*)((int)d + t[1] - 12) + offset - 12;
+                *(int*)((int)d + t[1] - 12) = *(int*)((int)d + t[1] - 12) + offset - 12 + (merl ? 0 : start);
                 if (merl) {
                     *rel++ = 0x31;
                     *rel++ = (t[1] + offset - 12);
