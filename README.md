@@ -21,4 +21,4 @@ make
 ./lk -o combine -m c5.o other.o
 ```
 
-NOTE: `-m` in parameter meas output in MERL form, otherwise some error like `printf not found` would occurred when linking. All symbols must be resolved before running.
+NOTE: `-m` in parameter means to output in MERL form, otherwise some error like `printf not found` would occurred when linking. All symbols must be resolved before running.
