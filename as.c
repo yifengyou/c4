@@ -137,7 +137,7 @@ next()
             if (tk == '"') ival = pp - buf; else tk = Imm;
             return;
         }
-        else if ( tk == ',' || tk == '(' || tk == ')' || tk == ':' ) return;
+        else if ( tk == ',' || tk == '(' || tk == ')' || tk == ':' || tk == '[' || tk == ']') return;
         else if ( tk != ' ' && tk != '\n' && tk != '\t' && tk != '\r' && tk != '\b') {
             printf("%s:%d: bad token '%c'(%d)\n", file, line, tk, tk);
             exit(-1);
@@ -148,7 +148,7 @@ next()
 int
 main(int argc, char **argv)
 {
-    int fd, poolsz, i, *lsym, *le, *rel;
+    int fd, poolsz, i, *lsym, *le, *rel, t, *lid, ltk;
     char *tp;
 
     int offset;
@@ -172,7 +172,7 @@ main(int argc, char **argv)
     if (!output) { printf("no output file\n"); exit(-1); }
     if (!argc) { printf("usage: as -o output file ...\n"); exit(-1); }
 
-    poolsz = 256 * 1024; // arbitrary size
+    poolsz = 25600 * 1024; // arbitrary size
 
     if (!(sym = malloc(poolsz))) { printf("could not malloc(%d) symbol area\n", poolsz); exit(-1); }
     if (!(buf = malloc(poolsz))) { printf("could not malloc(%d) buffer area\n", poolsz); exit(-1); }
@@ -211,6 +211,7 @@ main(int argc, char **argv)
                     next(); if (tk != Reg) { printf("%s:%d expect register\n", file, line); exit(-1); }
                     next(); if (tk != ',') { printf("%s:%d expect `,'", file, line); exit(-1); }
                     next(); if (tk != Reg) { printf("%s:%d expect register\n", file, line); exit(-1); }
+                    next();
                     offset = offset + 4;
                 }
                 else if (
@@ -224,52 +225,75 @@ main(int argc, char **argv)
                     next(); if (tk != Reg) { printf("%s:%d expect register\n", file, line); exit(-1); }
                     next(); if (tk != ',') { printf("%s:%d expect `,'", file, line); exit(-1); }
                     next(); if (tk != Id && tk != Imm) { printf("%s:%d expect imm\n", file, line); exit(-1); }
+                    next(); if (tk == '[') {
+                        next(); if (tk != Id) { printf("%s:%d expect label\n", file, line); exit(-1); }
+                        next(); if (tk != ']') { printf("%s:%d expect `]'\n", file, line); exit(-1); }
+                        next();
+                    }
                     offset = offset + 4;
                 }
                 else if (id[Tk] == JR) {
                     next(); if (tk != Reg) { printf("%s:%d expect register\n", file, line); exit(-1); }
+                    next();
                     offset = offset + 4;
                 }
                 else if (id[Tk] == JALR) {
                     next(); if (tk != Reg) { printf("%s:%d expect register\n", file, line); exit(-1); }
                     next(); if (tk != ',') { printf("%s:%d expect `,'", file, line); exit(-1); }
                     next(); if (tk != Reg) { printf("%s:%d expect register\n", file, line); exit(-1); }
+                    next();
                     offset = offset + 4;
                 }
                 else if (id[Tk] == SCALL) {
                     next(); if (tk != Reg) { printf("%s:%d expect register\n", file, line); exit(-1); }
+                    next();
                     offset = offset + 4;
                 }
                 else if (id[Tk] == ERET) {
+                    next();
                     offset = offset + 4;
                 }
                 else if ((id[Tk] >= MFCO && id[Tk] <= MTCO) || id[Tk] == LUI) {
                     next(); if (tk != Reg) { printf("%s:%d expect register\n", file, line); exit(-1); }
                     next(); if (tk != ',') { printf("%s:%d expect `,'", file, line); exit(-1); }
                     next(); if (tk != Imm) { printf("%s:%d expect imm\n", file, line); exit(-1); }
+                    next();
                     offset = offset + 4;
                 }
                 else if (id[Tk] >= LW && id[Tk] <= SB) {
                     next(); if (tk != Reg) { printf("%s:%d expect register\n", file, line); exit(-1); }
                     next(); if (tk != ',') { printf("%s:%d expect `,'", file, line); exit(-1); }
                     next(); if (tk != Id && tk != Imm) { printf("%s:%d expect offset\n", file, line); exit(-1); }
-                    next(); if (tk != '(') { printf("%s:%d expect `('\n", file, line); exit(-1); }
+                    next(); 
+                    if (tk == '[') {
+                        next(); if (tk != Id) { printf("%s:%d expect label\n", file, line); exit(-1); }
+                        next(); if (tk != ']') { printf("%s:%d expect `]'\n", file, line); exit(-1); }
+                        next();
+                    }
+                    if (tk != '(') { printf("%s:%d expect `('\n", file, line); exit(-1); }
                     next(); if (tk != Reg) { printf("%s:%d expect register\n", file, line); exit(-1); }
                     next(); if (tk != ')') { printf("%s:%d expect `)'\n", file, line); exit(-1); }
+                    next();
                     offset = offset + 4;
                 }
                 else if (id[Tk] >= J && id[Tk] <= JAL) {
                     next(); if (tk != Id && tk != Imm) { printf("%s:%d expect address\n", file, line); exit(-1); }
+                    next();
                     offset = offset + 4;
                 }
                 else if (id[Tk] == DB || id[Tk] == DW || id[Tk] == DD) {
                     next(); if (tk != Id && tk != Imm) { printf("%s:%d expect imm\n", file, line); exit(-1); }
+                    next(); if (tk == '[') {
+                        next(); if (tk != Id) { printf("%s:%d expect label\n", file, line); exit(-1); }
+                        next(); if (tk != ']') { printf("%s:%d expect `]'\n", file, line); exit(-1); }
+                        next();
+                    }
                     offset = offset + 4;
                 }
                 else if (id[Tk] == STR) {
                     next(); if (tk != '"') { printf("%s:%d expect string\n", file, line); exit(-1); }
-                    offset = (offset + ival) & -sizeof(int);
-                    offset = offset + 4;
+                    offset = ((offset + ival) & -sizeof(int)) + 4;
+                    next();
                 }
                 else {
                     if (id[Tk] == Labl && id[Value] != ~0) { printf("%s:%id iduplicate label `%.*s'\n", file, line, id[Hash] & 0x3F, (char*)id[Name]); }
@@ -277,12 +301,14 @@ main(int argc, char **argv)
                     id[Value] = offset;
                     next();
                     if (tk != ':') { printf("%s:%d bad label\n", file, line); exit(-1); }
+                    next();
                 }
             }
             else if (tk == Directive) {
                 if (ival == GLOB) {
                     next();
                     if (tk != Id) { printf("%s:%d bad global directive `%.*s'\n", file, line, id[Hash] & 0x3F, (char*)id[Name]); exit(-1); }
+                    next();
                 }
                 else if (ival == EXTN) {
                     next(); 
@@ -292,6 +318,7 @@ main(int argc, char **argv)
                         id[Tk] = Labl;
                         id[Value] = ~0;
                     }
+                    next();
                 }
                 else {
                     printf("%s:%d unsupported directive `%.*s'\n", file, line, id[Hash] & 0x3F, (char*)id[Name]);
@@ -299,8 +326,6 @@ main(int argc, char **argv)
                 }
             }
             else { printf("%s:%d bad inst\n", file, line); exit(-1); }
-
-            next();
         }
 
         ++argv;
@@ -331,13 +356,13 @@ main(int argc, char **argv)
      */
 
     p = tp;
+    line = 1;
     next();
     while (tk) {
         if (tk == Id && id[Tk] != STR && id[Tk] != Labl) {
             i = 0;
             if (
-                    (id[Tk] >= ADD && id[Tk] <= SLTU)  ||
-                    (id[Tk] >= SLLV && id[Tk] <= SRAV)
+                    id[Tk] >= ADD && id[Tk] <= SLTU
             ) {
                 if      (id[Tk] == ADD)     i = i | 0x20;
                 else if (id[Tk] == ADDU)    i = i | 0x21;
@@ -349,12 +374,19 @@ main(int argc, char **argv)
                 else if (id[Tk] == NOR)     i = i | 0x27;
                 else if (id[Tk] == SLT)     i = i | 0x2A;
                 else if (id[Tk] == SLTU)    i = i | 0x2B;
-                else if (id[Tk] == SLLV)    i = i | 0x04;
+                next(); i = i | ((ival & 0x1F) << 11);  next();
+                next(); i = i | ((ival & 0x1F) << 21);  next();
+                next(); i = i | ((ival & 0x1F) << 16);  next();
+            }
+            else if (
+                    id[Tk] >= SLLV && id[Tk] <= SRAV
+            ) {
+                if      (id[Tk] == SLLV)    i = i | 0x04;
                 else if (id[Tk] == SRLV)    i = i | 0x06;
                 else if (id[Tk] == SRAV)    i = i | 0x07;
                 next(); i = i | ((ival & 0x1F) << 11);  next();
+                next(); i = i | ((ival & 0x1F) << 16);  next();
                 next(); i = i | ((ival & 0x1F) << 21);  next();
-                next(); i = i | ((ival & 0x1F) << 16);
             }
             else if (
                     id[Tk] >= SLL && id[Tk] <= SRA
@@ -364,38 +396,39 @@ main(int argc, char **argv)
                 else if (id[Tk] == SRA)     i = i | 0x03;
                 next(); i = i | ((ival & 0x1F) << 11);  next();
                 next(); i = i | ((ival & 0x1F) << 16);  next();
-                next(); i = i | ((ival & 0x1F) << 6);
+                next(); i = i | ((ival & 0x1F) << 6);   next();
             }
             else if (
                     id[Tk] == JR
             ) {
                 i = i | 0x08;
-                next(); i = i | ((ival & 0x1F) << 21);
+                next(); i = i | ((ival & 0x1F) << 21);  next();
             }
             else if (
                     id[Tk] == JALR
             ) {
                 i = i | 0x09;
                 next(); i = i | ((ival & 0x1F) << 21);  next();
-                next(); i = i | ((ival & 0x1F) << 11);
+                next(); i = i | ((ival & 0x1F) << 11);  next();
             }
             else if (
                     id[Tk] == SCALL
             ) {
-                next(); i = i | ((ival & 0x1F) << 16);
+                next(); i = i | ((ival & 0x1F) << 16);  next();
                 i = i | 0x0C;
             }
             else if (
                     id[Tk] == ERET
             ) {
-                i = (0x10 << 26) | (0x12);
+                i = (0x10 << 26) | (0x18);
+                next();
             }
             else if (
                     id[Tk] == MFCO || id[Tk] == MTCO
             ) {
                 if (id[Tk] == MTCO) i = i | 0x04;
                 next(); i = i | ((ival & 0x1F) << 16);  next();
-                next(); i = i | ((ival & 0x1F) << 11);
+                next(); i = i | ((ival & 0x1F) << 11);  next();
                 i = i | (0x10 << 26);
             }
             else if (
@@ -411,32 +444,41 @@ main(int argc, char **argv)
                 else if (id[Tk] == SLTIU)   i = i | (0x0B << 26);
                 next(); i = i | ((ival & 0x1F) << 16);  next();
                 next(); i = i | ((ival & 0x1F) << 21);  next();
-                next(); 
-                if (merl && tk == Id && (id[Tk] == Labl || id[Tk] == Id)) {
-                    if (ival == ~0) {
-                        // external labels
-                        *rel++ = 0x12;
-                        *rel++ = (int)e - (int)le;
-                        *rel++ = id[Hash] & 0x3F;
-                        memcpy((char*)rel, (char*)id[Name], id[Hash] & 0x3F);
-                        rel = (int*)((int)rel + (id[Hash] & 0x3F) + sizeof(int) & -sizeof(int));
+                next(); t = ival; lid = id; ltk = tk;   next();
+
+                if (tk == '[') {
+                    next();
+                    if (ival == ~0) { printf("%s:%d refer to unresolved symbol\n", file, line); exit(-1); }
+                    t = t - ival;
+                    next(); next();
+                }
+                else {
+                    if (merl && ltk == Id && (lid[Tk] == Labl || lid[Tk] == Id)) {
+                        if (t == ~0) {
+                            *rel++ = 0x12;
+                            *rel++ = (int)e - (int)le;
+                            *rel++ = lid[Hash] & 0x3F;
+                            memcpy((char*)rel, (char*)lid[Name], lid[Hash] & 0x3F);
+                            rel = (int*)((int)rel + (lid[Hash] & 0x3F) + sizeof(int) & -sizeof(int));
+                        }
+                        else {
+                            *rel++ = 0x11;
+                            *rel++ = (int)e - (int)le;
+                        }
                     }
-                    else {
-                        *rel++ = 0x11;
-                        *rel++ = (int)e - (int)le;
+                    else if (ltk == Id && ival == ~0) {
+                        printf("unresolved label: `%.*s'\n", lid[Hash] & 0x3F, (char*)lid[Name]);
+                        exit(-1);
                     }
                 }
-                else if (tk == Id && ival == ~0) {
-                    printf("unresolved label: `%.*s'\n", id[Hash] & 0x3F, (char*)id[Name]);
-                    exit(-1);
-                }
-                i = i | (ival & ((1 << 16) - 1));
+                if (t > 32767 || t < -32768) { printf("%s:%d imm/label too large (%d)\n", file, line, t); }
+                i = i | (t & ((1 << 16) - 1));
             }
             else if (
                     id[Tk] == LUI
             ) {
                 next(); i = i | ((ival & 0x1F) << 16);  next();
-                next(); i = i | (ival & ((i << 16) - 1));
+                next(); i = i | (ival & ((i << 16) - 1)); next();
                 i = i | (0x0F << 26);
             }
             else if (
@@ -449,28 +491,36 @@ main(int argc, char **argv)
                 else if (id[Tk] == SH)      i = i | (0x29 << 26);
                 else if (id[Tk] == SB)      i = i | (0x28 << 26);
                 next(); i = i | ((ival & 0x1F) << 16);  next();
-                next();
-                if (merl && tk == Id && (id[Tk] == Labl || id[Tk] == Id)) {
-                    if (ival == ~0) {
-                        // external labels
-                        *rel++ = 0x12;
-                        *rel++ = (int)e - (int)le;
-                        *rel++ = id[Hash] & 0x3F;
-                        memcpy((char*)rel, (char*)id[Name], id[Hash] & 0x3F);
-                        rel = (int*)((int)rel + (id[Hash] & 0x3F) + sizeof(int) & -sizeof(int));
+                next(); t = ival; lid = id; ltk = tk;   next();
+                if (tk == '[') {
+                    next();
+                    if (ival == ~0) { printf("%s:%d refer to unresolved symbol\n", file, line); exit(-1); }
+                    t = t - ival;
+                    next(); next();
+                }
+                else {
+                    if (merl && ltk == Id && (lid[Tk] == Labl || lid[Tk] == Id)) {
+                        if (t == ~0) {
+                            // external labels
+                            *rel++ = 0x12;
+                            *rel++ = (int)e - (int)le;
+                            *rel++ = lid[Hash] & 0x3F;
+                            memcpy((char*)rel, (char*)lid[Name], lid[Hash] & 0x3F);
+                            rel = (int*)((int)rel + (lid[Hash] & 0x3F) + sizeof(int) & -sizeof(int));
+                        }
+                        else {
+                            *rel++ = 0x11;
+                            *rel++ = (int)e - (int)le;
+                        }
                     }
-                    else {
-                        *rel++ = 0x11;
-                        *rel++ = (int)e - (int)le;
+                    else if (ltk == Id && ival == ~0) {
+                        printf("unresolved label: `%.*s'\n", lid[Hash] & 0x3F, (char*)lid[Name]);
+                        exit(-1);
                     }
                 }
-                else if (tk == Id && ival == ~0) {
-                    printf("unresolved label: `%.*s'\n", id[Hash] & 0x3F, (char*)id[Name]);
-                    exit(-1);
-                }
-                i = i | (ival & ((1 << 16) - 1));
-                next();
-                next(); i = i | ((ival & 0x1F) << 21);  next();
+                if (t > 32767 || t < -32768) { printf("%s:%d imm/label too large (%d)\n", file, line, t); }
+                i = i | (t & ((1 << 16) - 1));
+                next(); i = i | ((ival & 0x1F) << 21);  next(); next();
             }
             else if (
                     id[Tk] >= BEQ && id[Tk] <= BNE
@@ -493,7 +543,9 @@ main(int argc, char **argv)
                     exit(-1);
                 }
                 if (id[Tk] == Labl) ival = (ival - ((int)e - (int)le) - 4) >> 2;
+                if (ival > 32767 || ival < -32768) { printf("%s:%d imm/label too large (%d)\n", file, line, t); }
                 i = i | (ival & ((1 << 16) - 1));
+                next();
             }
             else if (
                     id[Tk] == J || id[Tk] == JAL
@@ -520,6 +572,7 @@ main(int argc, char **argv)
                     exit(-1);
                 }
                 i = i | (ival & ((1 << 26) - 1));
+                next();
             }
             else if (
                     id[Tk] >= DB && id[Tk] <= DD
@@ -544,6 +597,7 @@ main(int argc, char **argv)
                     printf("unresolved label: `%.*s'\n", id[Hash] & 0x3F, (char*)id[Name]);
                     exit(-1);
                 }
+                next();
             }
             *e++ = i;
         }
@@ -551,8 +605,10 @@ main(int argc, char **argv)
             next();
             memcpy((char*)e, buf, ival);
             e = (int*)((int)e + ival + sizeof(int) & -sizeof(int));
+            next();
         }
         else if (tk == Id && id[Tk] == Labl) {
+            next();
             next();
         }
         else if (tk == Directive) {
@@ -561,9 +617,11 @@ main(int argc, char **argv)
                 if (tk != Id || id[Tk] != Labl) { printf("%s:%d bad global directive `%.*s'\n", file, line, id[Hash] & 0x3F, (char*)id[Name]); exit(-1); }
                 id[Value] = -id[Value];
             }
-            else next();
+            else {
+                next();
+            }
+            next();
         }
-        next();
     }
 
     if (merl) {
@@ -583,12 +641,13 @@ main(int argc, char **argv)
     }
 
     if ((fd = open(output,
-                    O_CREAT | O_WRONLY,
+                    O_CREAT | O_WRONLY | O_TRUNC,
                     S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)) < 0) { printf("open returned %d\n", fd); exit(-1); }
 
     write(fd, le, (int)rel - (int)le);
     close(fd);
 
+    free(tp);
     free(sym);
     free(buf);
     free(le);
